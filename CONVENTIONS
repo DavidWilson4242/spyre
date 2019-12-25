@@ -1,0 +1,18 @@
+-- David Wilson and Jake Little
+
+INSTRUCTION FORMAT
+  00000000 00000000
+  AAAAAAAA AAAABBBB
+
+  A bits => instruction opcode
+  B bits => addressing mode
+
+ADDRESSING MODES
+  0x0: REG, INT
+  0x1: REG, REG
+  0x2: REG, [REG]
+  0x3: REG, [REG + INT]
+  0x4: REG, [REG + REG*INT]
+  0x5: [REG], REG
+  0x6: [REG + INT], REG
+  0x7: [REG + REG*INT], INT
