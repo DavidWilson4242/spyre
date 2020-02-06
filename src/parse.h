@@ -4,6 +4,8 @@
 #include "lex.h"
 
 struct ASTNode;
+struct FunctionDescriptor;
+struct StructDescriptor;
 
 typedef enum ASTNodeType {
   NODE_UNDEFINED = 0,
@@ -23,8 +25,15 @@ typedef enum NodeExpressionType {
   EXP_UNARY,
   EXP_BINARY,
   EXP_INTEGER,
-  EXP_FLOAT
+  EXP_FLOAT,
+  EXP_VARIABLE
 } NodeExpressionType_T;
+
+typedef enum DatatypeType {
+  DT_PRIMITIVE,
+  DT_STRUCT,
+  DT_FUNCTION
+} DatatypeType_T;
 
 typedef enum LeafSide {
   LEAF_NA,
@@ -33,20 +42,34 @@ typedef enum LeafSide {
 } LeafSide_T;
 
 typedef struct Datatype {
-  char *typename;          /* typename id */ 
+  char *type_name;          /* type_name id */ 
   unsigned arrdim;          /* array dimension */
   unsigned ptrdim;          /* pointer dimension */
   unsigned primsize;        /* size in bytes.  N/A if not primitive */
   bool is_const;
-
-  struct Datatype *members; /* struct if valid. primitive if NULL */
+  DatatypeType_T type;
+  
+  union {
+    struct FunctionDescriptor_T *fdesc;
+    struct StructDescriptor_T   *sdesc;
+  };
   struct Datatype *next;    /* if I'm a member, pointer to next member */
 } Datatype_T;
 
 typedef struct Declaration {
   char *name;
   Datatype_T *dt;
+  struct Declaration *next;
 } Declaration_T;
+
+typedef struct FunctionDescriptor {
+  Declaration_T *arguments;
+  Datatype_T *return_type;
+} FunctionDescriptor_T;
+
+typedef struct StructDescriptor_T {
+  Declaration_T *members;
+} StructDescriptor_T;
 
 typedef struct BuiltinTypes {
   Datatype_T *int_t;
@@ -75,6 +98,7 @@ typedef struct NodeExpression {
     double fval;
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
+    Declaration_T *decl;
   };
 } NodeExpression_T;
 
@@ -94,6 +118,8 @@ typedef struct NodeIf {
 
 typedef struct NodeBlock {
   struct ASTNode *children;
+  Declaration_T *vars;
+  Declaration_T *backvar;
 } NodeBlock_T;
 
 typedef struct ASTNode {

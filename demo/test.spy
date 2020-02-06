@@ -1,2 +1,5 @@
 x: int;
 y: float;
+if (x + y < 20) {
+  z: int;
+}

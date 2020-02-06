@@ -30,44 +30,44 @@ typedef struct OperatorDescriptor {
 } OperatorDescriptor_T;
 
 static const OperatorDescriptor_T prec_table[255] = {
-	[',']				      = {1,  ASSOC_LEFT,  OPERAND_BINARY},
-	['=']				      = {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_INC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_DEC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_MUL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_DIV_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_MOD_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_SHL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_SHR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_AND_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_OR_BY]		  = {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_XOR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-	[SPECO_LOG_AND]	  = {3,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_LOG_OR]		= {3,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_EQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_NEQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
-	['>']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_GE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-	['<']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_LE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-	['|']				      = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_SHL]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_SHR]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-	['+']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
-	['-']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
-	['*']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-	['%']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-	['/']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-	['@']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-	['$']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-	['!']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-	[SPECO_TYPENAME]	= {10, ASSOC_RIGHT, OPERAND_UNARY},
-	[SPECO_CAST]			= {10, ASSOC_RIGHT, OPERAND_UNARY},
-	['.']				      = {11, ASSOC_LEFT,  OPERAND_BINARY},
-	[SPECO_INC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
-	[SPECO_DEC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
-	[SPECO_CALL]			= {11, ASSOC_LEFT,  OPERAND_UNARY},
-	[SPECO_INDEX]		  = {11, ASSOC_LEFT,  OPERAND_UNARY}
+  [',']				      = {1,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['=']				      = {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_INC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_DEC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_MUL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_DIV_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_MOD_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_SHL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_SHR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_AND_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_OR_BY]		  = {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_XOR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_LOG_AND]	  = {3,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_LOG_OR]		= {3,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_EQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_NEQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['>']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_GE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['<']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_LE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['|']				      = {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_SHL]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_SHR]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['+']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['-']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['*']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['%']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['/']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['@']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
+  ['$']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
+  ['!']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
+  [SPECO_TYPENAME]	= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  [SPECO_CAST]			= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  [SPECO_INC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
+  [SPECO_DEC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
+  [SPECO_CALL]			= {11, ASSOC_LEFT,  OPERAND_UNARY},
+  [SPECO_INDEX]		  = {11, ASSOC_LEFT,  OPERAND_UNARY},
+  ['.']				      = {11, ASSOC_LEFT,  OPERAND_BINARY}
 };
 
 static void indent(size_t n) {
@@ -91,21 +91,26 @@ static void parse_err(ParseState_T *P, const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
-static Datatype_T *make_datatype(const char *typename, unsigned arrdim, unsigned ptrdim,
+/* not to be used for creating structs or functions... just primitives */
+/* can, however, be called then rewritten over when creating a struct
+ * or a function datatype */
+static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigned ptrdim,
     unsigned primsize, bool is_const) {
   Datatype_T *dt = malloc(sizeof(Datatype_T));
   assert(dt);
 
-  dt->typename = malloc(strlen(typename) + 1);
-  assert(dt->typename);
-  strcpy(dt->typename, typename);
+  dt->type_name = malloc(strlen(type_name) + 1);
+  assert(dt->type_name);
+  strcpy(dt->type_name, type_name);
 
   dt->arrdim   = arrdim;
   dt->ptrdim   = ptrdim;
   dt->primsize = primsize;
   dt->is_const = is_const;
-  dt->members  = NULL;
+  dt->fdesc    = NULL;
+  dt->sdesc    = NULL;
   dt->next     = NULL;
+  dt->type     = DT_PRIMITIVE;
 
   return dt;
 
@@ -115,8 +120,40 @@ static Datatype_T *make_datatype(const char *typename, unsigned arrdim, unsigned
  * to clone the builtin primitive types, and is not meant
  * for cloning datatypes with members */
 static Datatype_T *clone_datatype(Datatype_T *dt) {
-  return make_datatype(dt->typename, dt->arrdim, dt->ptrdim,
-                       dt->primsize, dt->is_const);
+  return make_datatype(dt->type_name, dt->arrdim, dt->ptrdim,
+      dt->primsize, dt->is_const);
+}
+
+/* propogate upwards in the syntax, starting at the nearest block, looking
+ * for variables */
+static Declaration_T *decl_from_name(ParseState_T *P, const char *name) {
+  for (ASTNode_T *b = P->block; b != NULL; b = b->parent) {
+    if (b->type != NODE_BLOCK) {
+      continue;
+    }
+    for (Declaration_T *decl = b->nodeblock->vars; decl != NULL; decl = decl->next) {
+      if (!strcmp(decl->name, name)) {
+        return decl;
+      }
+    }
+  }
+  return NULL;
+}
+
+/* TODO support for functions, structs */
+static void print_datatype(Datatype_T *dt) {
+  printf("%s", dt->type_name);
+  for (size_t i = 0; i < dt->ptrdim; i++) {
+    printf("^");
+  }
+  for (size_t i = 0; i < dt->arrdim; i++) {
+    printf("[]");
+  }
+}
+
+static void print_decl(Declaration_T *decl) {
+  printf("%s: ", decl->name);
+  print_datatype(decl->dt);
 }
 
 static Declaration_T *empty_decl() {
@@ -194,6 +231,25 @@ static void append_node(ParseState_T *P, ASTNode_T *node) {
   }
 }
 
+static void add_variable_to_block(ParseState_T *P, Declaration_T *decl) {
+  if (!P->block) {
+    parse_err(P, "variable declarations can only exist inside of a block");
+  }
+
+  NodeBlock_T *block = P->block->nodeblock;
+
+  /* add to back, maintaining proper order */
+  if (block->vars) {
+    block->backvar->next = decl;
+    block->backvar = decl;
+  } else {
+    block->vars = decl;
+    block->backvar = decl;
+  }
+  decl->next = NULL;
+
+}
+
 static inline LexToken_T *at(ParseState_T *P) {
   return P->tok;
 }
@@ -262,7 +318,7 @@ static NodeExpression_T *expstack_pop(ExpressionStack_T **stack) {
   if (*stack == NULL) {
     return NULL;
   }
-  
+
   NodeExpression_T *node = (*stack)->node;
   ExpressionStack_T *top = *stack;
   ExpressionStack_T *next = (*stack)->next;
@@ -290,7 +346,7 @@ void expstack_print(ExpressionStack_T **stack) {
     NodeExpression_T *node = s->node;
     switch (node->type) {
       case EXP_INTEGER:
-        printf("%lld ", node->ival);
+        printf("%ld ", node->ival);
         break;
       case EXP_BINARY:
         printf("%c ", node->binop->optype);
@@ -304,7 +360,7 @@ void expstack_print(ExpressionStack_T **stack) {
 
 /* implementation of the shunting yard algorithm */
 static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **operators,
-                          const OperatorDescriptor_T *opdesc) {
+    const OperatorDescriptor_T *opdesc) {
   NodeExpression_T *top;
   const OperatorDescriptor_T *top_desc;
 
@@ -324,12 +380,12 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
       default:
         top_desc = NULL;
     }
-    
+
     /* found an open parenthesis? quit loop */
     if (top->type == EXP_UNARY && top->unop->optype == '(') {
       break;
     }
-    
+
     /* use precedence rules to determine break */
     if (opdesc->assoc == ASSOC_LEFT && opdesc->prec > top_desc->prec) {
       break;
@@ -345,10 +401,13 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
   indent(ind);
   switch (node->type) {
     case EXP_INTEGER:
-      printf("%lld\n", node->ival);
+      printf("%ld\n", node->ival);
       break;
     case EXP_FLOAT:
       printf("%f\n", node->fval);
+      break;
+    case EXP_VARIABLE:
+      printf("%s\n", node->decl->name);
       break;
     case EXP_BINARY:
       printf("%c|%d\n", node->binop->optype, node->binop->optype);
@@ -389,9 +448,22 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
       break;
     case NODE_BLOCK:
       printf("BLOCK: {\n");
-      for (ASTNode_T *child = node->nodeblock->children; child; child = child->next) {
-        astnode_print(child, ind + 1);
+      indent(ind + 1);
+      printf("LOCALS: {\n");
+      for (Declaration_T *decl = node->nodeblock->vars; decl; decl = decl->next) {
+        indent(ind + 2);
+        print_decl(decl);
+        printf("\n");
       }
+      indent(ind + 1);
+      printf("}\n");
+      indent(ind + 1);
+      printf("CHILDREN: {\n");
+      for (ASTNode_T *child = node->nodeblock->children; child; child = child->next) {
+        astnode_print(child, ind + 2);
+      }
+      indent(ind + 1);
+      printf("}\n");
       indent(ind);
       printf("}\n");
       break;
@@ -446,11 +518,11 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
   NodeExpression_T *node;
   NodeExpression_T *top;
   const OperatorDescriptor_T *opinfo;
- 
+
   /* ===== PHASE ONE | SHUNTING YARD ===== */
 
   /* implementation of the shunting yard algorithm.  converts the
-  * expression from infix notation to postix notation */
+   * expression from infix notation to postix notation */
   while (P->tok != P->mark) {
     LexToken_T *t = P->tok;
     switch (t->type) {
@@ -462,6 +534,14 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
       case TOKEN_FLOAT:
         node = empty_expnode(EXP_FLOAT);
         node->fval = t->fval;
+        expstack_push(&postfix, node);
+        break;
+      case TOKEN_IDENTIFIER:
+        node = empty_expnode(EXP_VARIABLE);
+        node->decl = decl_from_name(P, P->tok->sval);
+        if (!node->decl) {
+          parse_err(P, "unknown variable '%s'", P->tok->sval);
+        }
         expstack_push(&postfix, node);
         break;
       case TOKEN_OPERATOR:
@@ -501,7 +581,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
     }
     safe_eat(P);
   }
-  
+
   /* empty remaining operator stack into postfix */
   while (expstack_top(&operators)) {
     NodeExpression_T *node = expstack_pop(&operators);
@@ -527,6 +607,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
     switch (node->type) {
       case EXP_INTEGER:
       case EXP_FLOAT:
+      case EXP_VARIABLE:
         expstack_push(&tree, node);
         break;
       case EXP_UNARY:
@@ -539,25 +620,25 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
         expstack_push(&tree, node);
         break;
       case EXP_BINARY: {
-        NodeExpression_T *leaves[2];
+                         NodeExpression_T *leaves[2];
 
-        /* binary operator? pop off two operands */
-        for (size_t i = 0; i < 2; i++) {
-          leaves[i] = expstack_pop(&tree);
-          if (!leaves[i]) {
-            parse_err(P, malformed_message);
-          }
-          leaves[i]->parent = node;
-          leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
-        }
+                         /* binary operator? pop off two operands */
+                         for (size_t i = 0; i < 2; i++) {
+                           leaves[i] = expstack_pop(&tree);
+                           if (!leaves[i]) {
+                             parse_err(P, malformed_message);
+                           }
+                           leaves[i]->parent = node;
+                           leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
+                         }
 
-        /* swap order */
-        node->binop->left_operand = leaves[1];
-        node->binop->right_operand = leaves[0];
-        
-        expstack_push(&tree, node);
-        break;
-      }
+                         /* swap order */
+                         node->binop->left_operand = leaves[1];
+                         node->binop->right_operand = leaves[0];
+
+                         expstack_push(&tree, node);
+                         break;
+                       }
     }
   }
 
@@ -593,6 +674,9 @@ static void mark_operator(ParseState_T *P, uint8_t inc, uint8_t end) {
 }
 
 static void parse_expression_node(ParseState_T *P) {
+  if (on_identifier(P, ";")) {
+    eat(P, ";");
+  }
   ASTNode_T *node = empty_node(NODE_EXPRESSION);
   free(node->nodeexp);
   mark_operator(P, SPECO_NULL, ';');
@@ -653,13 +737,13 @@ static void parse_block(ParseState_T *P) {
 }
 
 /* TODO add support for custom types (structs) */
-static Datatype_T *datatype_from_name(ParseState_T *P, const char *typename) {
+static Datatype_T *datatype_from_name(ParseState_T *P, const char *type_name) {
   Datatype_T *checktypes[] = {P->builtin->int_t,
-                              P->builtin->float_t,
-                              P->builtin->char_t,
-                              P->builtin->bool_t};
+    P->builtin->float_t,
+    P->builtin->char_t,
+    P->builtin->bool_t};
   for (size_t i = 0; i < sizeof(checktypes)/sizeof(Datatype_T *); i++) {
-    if (!strcmp(checktypes[i]->typename, typename)) {
+    if (!strcmp(checktypes[i]->type_name, type_name)) {
       return clone_datatype(checktypes[i]);
     }
   }
@@ -683,7 +767,7 @@ static bool should_parse_declaration(ParseState_T *P) {
   return is_tok_type(P, TOKEN_IDENTIFIER) && next->oval == ':';
 }
 
-static void parse_declaration(ParseState_T *P) {
+static Declaration_T *parse_declaration(ParseState_T *P) {
   Declaration_T *decl = empty_decl();
   decl->name = malloc(strlen(P->tok->sval) + 1);
   strcpy(decl->name, P->tok->sval);
@@ -691,6 +775,7 @@ static void parse_declaration(ParseState_T *P) {
   eat(P, ":");
   decl->dt = parse_datatype(P);
   eat(P, ";");
+  return decl;
 }
 
 static ParseState_T *init_parsestate(LexState_T *L) {
@@ -733,12 +818,12 @@ ParseState_T *parse_file(LexState_T *L) {
     } else if (should_leave_block(P)) {
       leave_block(P);
     } else if (should_parse_declaration(P)) {
-      parse_declaration(P);
+      add_variable_to_block(P, parse_declaration(P));
     } else {
       parse_expression_node(P);
     }
   }
-  
+
   printf("AST printout:\n");
   astnode_print(P->root, 0);
 
