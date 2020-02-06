@@ -41,6 +41,7 @@ static const struct {
   {"&&",  SPECO_LOG_AND},
   {"||",  SPECO_LOG_OR},
   {"->",  SPECO_ARROW},
+  {":=",  SPECO_IMPLIED_EQ}
 };
 
 static void lex_err(LexState_T *L, const char *fmt, ...) {

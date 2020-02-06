@@ -35,6 +35,7 @@
 #define SPECO_DOTS			    27 /* ... */
 #define SPECO_CAST			    28
 #define SPECO_INDEX			    29
+#define SPECO_IMPLIED_EQ    30 /* := */
 
 typedef enum LexTokenType {
   TOKEN_UNDEFINED = 0,

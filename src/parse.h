@@ -33,7 +33,7 @@ typedef enum LeafSide {
 } LeafSide_T;
 
 typedef struct Datatype {
-  char *type_name;          /* typename id */ 
+  char *typename;          /* typename id */ 
   unsigned arrdim;          /* array dimension */
   unsigned ptrdim;          /* pointer dimension */
   unsigned primsize;        /* size in bytes.  N/A if not primitive */
@@ -42,6 +42,11 @@ typedef struct Datatype {
   struct Datatype *members; /* struct if valid. primitive if NULL */
   struct Datatype *next;    /* if I'm a member, pointer to next member */
 } Datatype_T;
+
+typedef struct Declaration {
+  char *name;
+  Datatype_T *dt;
+} Declaration_T;
 
 typedef struct BuiltinTypes {
   Datatype_T *int_t;

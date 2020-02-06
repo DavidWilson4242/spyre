@@ -91,14 +91,14 @@ static void parse_err(ParseState_T *P, const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
-static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigned ptrdim,
+static Datatype_T *make_datatype(const char *typename, unsigned arrdim, unsigned ptrdim,
     unsigned primsize, bool is_const) {
   Datatype_T *dt = malloc(sizeof(Datatype_T));
   assert(dt);
 
-  dt->type_name = malloc(strlen(type_name) + 1);
-  assert(dt->type_name);
-  strcpy(dt->type_name, type_name);
+  dt->typename = malloc(strlen(typename) + 1);
+  assert(dt->typename);
+  strcpy(dt->typename, typename);
 
   dt->arrdim   = arrdim;
   dt->ptrdim   = ptrdim;
@@ -115,8 +115,16 @@ static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigne
  * to clone the builtin primitive types, and is not meant
  * for cloning datatypes with members */
 static Datatype_T *clone_datatype(Datatype_T *dt) {
-  return make_datatype(dt->type_name, dt->arrdim, dt->ptrdim,
+  return make_datatype(dt->typename, dt->arrdim, dt->ptrdim,
                        dt->primsize, dt->is_const);
+}
+
+static Declaration_T *empty_decl() {
+  Declaration_T *decl = malloc(sizeof(Declaration_T));
+  assert(decl);
+  decl->name = NULL;
+  decl->dt = NULL;
+  return decl;
 }
 
 static ASTNode_T *empty_node(ASTNodeType_T type) {
@@ -151,8 +159,22 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
   return node;
 }
 
+/* verifies that a node can be placed at the next spot.  for example,
+ * only blocks and statements may follow an if-statement */
 static void verify_node(ParseState_T *P, ASTNode_T *node) {
-
+  if (!P->backnode) {
+    return;
+  }
+  if (P->backnode->type == NODE_IF) {
+    if (node->type != NODE_EXPRESSION && node->type != NODE_BLOCK) {
+      parse_err(P, "only a statement or block may follow an if-conditional");
+    }
+  }
+  if (P->backnode->type == NODE_WHILE) {
+    if (node->type != NODE_EXPRESSION && node->type != NODE_BLOCK) {
+      parse_err(P, "only a statement or block may follow a while-loop");
+    }
+  }
 }
 
 static void append_node(ParseState_T *P, ASTNode_T *node) {
@@ -198,6 +220,13 @@ static bool on_identifier(ParseState_T *P, const char *id) {
     return false;
   }
   return !strcmp(P->tok->as_string, id);
+}
+
+static bool is_tok_type(ParseState_T *P, LexTokenType_T type) {
+  if (!P->tok) {
+    return false;
+  }
+  return P->tok->type == type;
 }
 
 static void eat(ParseState_T *P, const char *id) {
@@ -583,9 +612,6 @@ static void parse_if(ParseState_T *P) {
   mark_operator(P, '(', ')');
   node->nodeif->cond = parse_expression(P);
   eat(P, ")");
-  if (!on_identifier(P, "{")) {
-    parse_err(P, "expected '{' to follow if-statement");
-  }
   append_node(P, node);
 }
 
@@ -600,9 +626,6 @@ static void parse_while(ParseState_T *P) {
   mark_operator(P, '(', ')');
   node->nodewhile->cond = parse_expression(P);
   eat(P, ")");
-  if (!on_identifier(P, "{")) {
-    parse_err(P, "expected '{' to follow while-loop");
-  }
   append_node(P, node);
 }
 
@@ -627,6 +650,47 @@ static void parse_block(ParseState_T *P) {
   eat(P, "{");
   append_node(P, node);
   P->block = node;
+}
+
+/* TODO add support for custom types (structs) */
+static Datatype_T *datatype_from_name(ParseState_T *P, const char *typename) {
+  Datatype_T *checktypes[] = {P->builtin->int_t,
+                              P->builtin->float_t,
+                              P->builtin->char_t,
+                              P->builtin->bool_t};
+  for (size_t i = 0; i < sizeof(checktypes)/sizeof(Datatype_T *); i++) {
+    if (!strcmp(checktypes[i]->typename, typename)) {
+      return clone_datatype(checktypes[i]);
+    }
+  }
+  return NULL;
+}
+
+static Datatype_T *parse_datatype(ParseState_T *P) {
+  Datatype_T *dt = datatype_from_name(P, P->tok->as_string); 
+  if (!dt) {
+    parse_err(P, "unknown typename '%s'", P->tok->as_string);
+  }
+  safe_eat(P);
+  return dt;
+}
+
+static bool should_parse_declaration(ParseState_T *P) {
+  LexToken_T *next = peek(P, 1);
+  if (!next || next->type != TOKEN_OPERATOR) {
+    return false;
+  }
+  return is_tok_type(P, TOKEN_IDENTIFIER) && next->oval == ':';
+}
+
+static void parse_declaration(ParseState_T *P) {
+  Declaration_T *decl = empty_decl();
+  decl->name = malloc(strlen(P->tok->sval) + 1);
+  strcpy(decl->name, P->tok->sval);
+  safe_eat(P);
+  eat(P, ":");
+  decl->dt = parse_datatype(P);
+  eat(P, ";");
 }
 
 static ParseState_T *init_parsestate(LexState_T *L) {
@@ -668,6 +732,8 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_block(P);
     } else if (should_leave_block(P)) {
       leave_block(P);
+    } else if (should_parse_declaration(P)) {
+      parse_declaration(P);
     } else {
       parse_expression_node(P);
     }
