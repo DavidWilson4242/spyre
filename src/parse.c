@@ -68,6 +68,12 @@ static const OperatorDescriptor_T prec_table[255] = {
 	[SPECO_INDEX]		  = {11, ASSOC_LEFT,  OPERAND_UNARY}
 };
 
+static void indent(size_t n) {
+  for (size_t i = 0; i < n; i++) {
+    printf("\t");
+  }
+}
+
 static void parse_err(ParseState_T *P, const char *fmt, ...) {
 
   va_list varargs;
@@ -275,6 +281,14 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
   }
 }
 
+static void expnode_print(ExpressionNode_T *node, size_t ind) {
+  indent(ind);
+  switch (node->type) {
+    case EXP_INTEGER:
+      break;
+  }
+}
+
 static ExpressionNode_T *empty_expnode(ExpressionNodeType_T type) {
   ExpressionNode_T *node = malloc(sizeof(ExpressionNode_T));
   assert(node);
@@ -304,10 +318,11 @@ static ExpressionNode_T *empty_expnode(ExpressionNodeType_T type) {
   return node;
 }
 
-static Expression_T *parse_expression(ParseState_T *P) {
+static ExpressionNode_T *parse_expression(ParseState_T *P) {
 
   ExpressionStack_T *operators = NULL;
   ExpressionStack_T *postfix   = NULL;
+  ExpressionStack_T *tree      = NULL;
   ExpressionNode_T *node;
   ExpressionNode_T *top;
   const OperatorDescriptor_T *opinfo;
@@ -376,7 +391,7 @@ static Expression_T *parse_expression(ParseState_T *P) {
     expstack_push(&postfix, node);
   }
 
-  /* ... reverse the stack onto a temp stack */
+  /* reverse the stack onto a temp stack */
   ExpressionStack_T *temp = NULL;
   while (expstack_top(&postfix)) {
     expstack_push(&temp, expstack_pop(&postfix));
@@ -386,7 +401,55 @@ static Expression_T *parse_expression(ParseState_T *P) {
   /* print the stack for debug */
   expstack_print(&postfix);
 
+  const char *malformed_message = "malformed expression";
+
   /* ===== PHASE TWO | EXPRESSION TREE ===== */
+  for (ExpressionStack_T *s = postfix; s != NULL; s = s->next) {
+    node = s->node;
+    switch (node->type) {
+      case EXP_INTEGER:
+      case EXP_FLOAT:
+        expstack_push(&tree, node);
+        break;
+      case EXP_UNARY:
+        top = expstack_pop(&tree);
+        if (!top) {
+          parse_err(P, malformed_message);
+        }
+        top->parent = node;
+        node->unop->operand = top;
+        expstack_push(&tree, node);
+        break;
+      case EXP_BINARY: {
+        ExpressionNode_T *leaves[2];
+
+        /* binary operator? pop off two operands */
+        for (size_t i = 0; i < 2; i++) {
+          leaves[i] = expstack_pop(&tree);
+          if (!leaves[i]) {
+            parse_err(P, malformed_message);
+          }
+          leaves[i]->parent = node;
+          leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
+        }
+
+        /* swap order */
+        node->binop->left_operand = leaves[1];
+        node->binop->right_operand = leaves[0];
+        
+        expstack_push(&tree, node);
+        break;
+      }
+    }
+  }
+
+  ExpressionNode_T *final_value = expstack_pop(&tree);
+
+  if (tree != NULL) {
+    parse_err(P, "an expression may only have one result");
+  }
+
+  return final_value;
 }
 
 /* sometimes, marks are used to denote the end of an expression.  for example,
@@ -419,7 +482,7 @@ static void parse_if(ParseState_T *P) {
   eat(P, "if");
   eat(P, "(");
   mark_operator(P, '(', ')');
-  Expression_T *ex = parse_expression(P);
+  ExpressionNode_T *ex = parse_expression(P);
 }
 
 static ParseState_T *init_parsestate(LexState_T *L) {

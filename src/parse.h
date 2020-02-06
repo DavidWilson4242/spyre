@@ -26,6 +26,12 @@ typedef enum ExpressionNodeType {
   EXP_FLOAT
 } ExpressionNodeType_T;
 
+typedef enum LeafSide {
+  LEAF_NA,
+  LEAF_LEFT,
+  LEAF_RIGHT
+} LeafSide_T;
+
 typedef struct Datatype {
   char *type_name;          /* typename id */ 
   unsigned arrdim;          /* array dimension */
@@ -57,6 +63,7 @@ typedef struct UnaryOpNode {
 typedef struct ExpressionNode {
   ExpressionNodeType_T type;
   struct ExpressionNode *parent;
+  LeafSide_T leaf;
   union {
     int64_t ival;
     double fval;
