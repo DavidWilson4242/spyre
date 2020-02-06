@@ -620,25 +620,25 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
         expstack_push(&tree, node);
         break;
       case EXP_BINARY: {
-                         NodeExpression_T *leaves[2];
+         NodeExpression_T *leaves[2];
 
-                         /* binary operator? pop off two operands */
-                         for (size_t i = 0; i < 2; i++) {
-                           leaves[i] = expstack_pop(&tree);
-                           if (!leaves[i]) {
-                             parse_err(P, malformed_message);
-                           }
-                           leaves[i]->parent = node;
-                           leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
-                         }
+         /* binary operator? pop off two operands */
+         for (size_t i = 0; i < 2; i++) {
+           leaves[i] = expstack_pop(&tree);
+           if (!leaves[i]) {
+             parse_err(P, malformed_message);
+           }
+           leaves[i]->parent = node;
+           leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
+         }
 
-                         /* swap order */
-                         node->binop->left_operand = leaves[1];
-                         node->binop->right_operand = leaves[0];
+         /* swap order */
+         node->binop->left_operand = leaves[1];
+         node->binop->right_operand = leaves[0];
 
-                         expstack_push(&tree, node);
-                         break;
-                       }
+         expstack_push(&tree, node);
+         break;
+       }
     }
   }
 
