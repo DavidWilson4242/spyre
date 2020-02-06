@@ -10,9 +10,11 @@
 #define INTTYPE_NAME  "int"
 #define FLTTYPE_NAME  "float"
 #define CHARTYPE_NAME "char"
+#define BOOLTYPE_NAME "bool"
 
 #define INTTYPE_SIZE  8
 #define FLTTYPE_SIZE  8
+#define BOOLTYPE_SIZE 8
 #define CHARTYPE_SIZE 1
 
 typedef struct OperatorDescriptor {
@@ -70,7 +72,7 @@ static const OperatorDescriptor_T prec_table[255] = {
 
 static void indent(size_t n) {
   for (size_t i = 0; i < n; i++) {
-    printf("\t");
+    printf("  ");
   }
 }
 
@@ -122,32 +124,59 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
   assert(node);
   node->type = type;
   node->next = NULL;
+  node->parent = NULL;
   switch (type) {
     case NODE_IF:
-      node->node = malloc(sizeof(NodeIf_T));
+      node->nodeif = calloc(1, sizeof(NodeIf_T));
       break;
     case NODE_WHILE:
-      node->node = malloc(sizeof(NodeWhile_T));
+      node->nodewhile = calloc(1, sizeof(NodeWhile_T));
+      break;
+    case NODE_BLOCK:
+      node->nodeblock = calloc(1, sizeof(NodeBlock_T));
+      break;
+    case NODE_EXPRESSION:
+      node->nodeexp = calloc(1, sizeof(NodeExpression_T));
       break;
     case NODE_FOR:
     case NODE_FUNCTION:
-    case NODE_EXPRESSION:
     case NODE_RETURN:
     case NODE_CONTINUE:
     case NODE_INCLUDE:
     case NODE_DECLARATION:
     default:
-      node->node = NULL;
       break;
   }
+  assert(node->nodeif); /* all nodetypes share same address */
   return node;
+}
+
+static void verify_node(ParseState_T *P, ASTNode_T *node) {
+
+}
+
+static void append_node(ParseState_T *P, ASTNode_T *node) {
+  verify_node(P, node);
+  node->next = NULL;
+  node->parent = P->block;
+  if (P->backnode) {
+    P->backnode->next = node;
+    P->backnode = node;
+  } else {
+    P->backnode = node;
+    P->block->nodeblock->children = node;
+  }
+  if (node->type == NODE_BLOCK) {
+    P->block = node;
+    P->backnode = NULL;
+  }
 }
 
 static inline LexToken_T *at(ParseState_T *P) {
   return P->tok;
 }
 
-static inline LexToken_T *advance(ParseState_T *P, int n) {
+static inline void advance(ParseState_T *P, int n) {
   for (int i = 0; i < n && P->tok != NULL; i++) {
     P->tok = P->tok->next;
   }
@@ -185,7 +214,7 @@ static void safe_eat(ParseState_T *P) {
   }
 }
 
-static void expstack_push(ExpressionStack_T **stack, ExpressionNode_T *node) {
+static void expstack_push(ExpressionStack_T **stack, NodeExpression_T *node) {
   ExpressionStack_T *append = malloc(sizeof(ExpressionStack_T));
   assert(append);
   append->node = node;
@@ -200,12 +229,12 @@ static void expstack_push(ExpressionStack_T **stack, ExpressionNode_T *node) {
   }
 }
 
-static ExpressionNode_T *expstack_pop(ExpressionStack_T **stack) {
+static NodeExpression_T *expstack_pop(ExpressionStack_T **stack) {
   if (*stack == NULL) {
     return NULL;
   }
   
-  ExpressionNode_T *node = (*stack)->node;
+  NodeExpression_T *node = (*stack)->node;
   ExpressionStack_T *top = *stack;
   ExpressionStack_T *next = (*stack)->next;
   if (next) {
@@ -220,7 +249,7 @@ static ExpressionNode_T *expstack_pop(ExpressionStack_T **stack) {
   return node;
 }
 
-static ExpressionNode_T *expstack_top(ExpressionStack_T **stack) {
+static NodeExpression_T *expstack_top(ExpressionStack_T **stack) {
   if (*stack == NULL) {
     return NULL;
   }
@@ -229,13 +258,15 @@ static ExpressionNode_T *expstack_top(ExpressionStack_T **stack) {
 
 void expstack_print(ExpressionStack_T **stack) {
   for (ExpressionStack_T *s = *stack; s != NULL; s = s->next) {
-    ExpressionNode_T *node = s->node;
+    NodeExpression_T *node = s->node;
     switch (node->type) {
       case EXP_INTEGER:
-        printf("%ld ", node->ival);
+        printf("%lld ", node->ival);
         break;
       case EXP_BINARY:
         printf("%c ", node->binop->optype);
+        break;
+      default:
         break;
     }
   }
@@ -245,7 +276,7 @@ void expstack_print(ExpressionStack_T **stack) {
 /* implementation of the shunting yard algorithm */
 static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **operators,
                           const OperatorDescriptor_T *opdesc) {
-  ExpressionNode_T *top;
+  NodeExpression_T *top;
   const OperatorDescriptor_T *top_desc;
 
   while (1) {
@@ -281,16 +312,73 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
   }
 }
 
-static void expnode_print(ExpressionNode_T *node, size_t ind) {
+static void expnode_print(NodeExpression_T *node, size_t ind) {
   indent(ind);
   switch (node->type) {
     case EXP_INTEGER:
+      printf("%lld\n", node->ival);
+      break;
+    case EXP_FLOAT:
+      printf("%f\n", node->fval);
+      break;
+    case EXP_BINARY:
+      printf("%c|%d\n", node->binop->optype, node->binop->optype);
+      expnode_print(node->binop->left_operand, ind + 1);
+      expnode_print(node->binop->right_operand, ind + 1);
+      break;
+    case EXP_UNARY:
+      printf("%c|%d\n", node->unop->optype, node->unop->optype);
+      expnode_print(node->unop->operand, ind + 1);
+      break;
+    default:
       break;
   }
 }
 
-static ExpressionNode_T *empty_expnode(ExpressionNodeType_T type) {
-  ExpressionNode_T *node = malloc(sizeof(ExpressionNode_T));
+static void astnode_print(ASTNode_T *node, size_t ind) {
+  indent(ind);
+  switch (node->type) {
+    case NODE_IF:
+      printf("IF: {\n");
+      indent(ind + 1);
+      printf("COND: {\n");
+      expnode_print(node->nodeif->cond, ind + 2);
+      indent(ind + 1);
+      printf("}\n");
+      indent(ind);
+      printf("}\n");
+      break;
+    case NODE_WHILE:
+      printf("WHILE: {\n");
+      indent(ind + 1);
+      printf("COND: {\n");
+      expnode_print(node->nodewhile->cond, ind + 2);
+      indent(ind + 1);
+      printf("}\n");
+      indent(ind);
+      printf("}\n");
+      break;
+    case NODE_BLOCK:
+      printf("BLOCK: {\n");
+      for (ASTNode_T *child = node->nodeblock->children; child; child = child->next) {
+        astnode_print(child, ind + 1);
+      }
+      indent(ind);
+      printf("}\n");
+      break;
+    case NODE_EXPRESSION:
+      printf("STMT: {\n");
+      expnode_print(node->nodeexp, ind + 1);
+      indent(ind);
+      printf("}\n");
+      break;
+    default:
+      break;
+  }
+}
+
+static NodeExpression_T *empty_expnode(NodeExpressionType_T type) {
+  NodeExpression_T *node = malloc(sizeof(NodeExpression_T));
   assert(node);
   node->parent = NULL;
   node->type = type;
@@ -318,19 +406,22 @@ static ExpressionNode_T *empty_expnode(ExpressionNodeType_T type) {
   return node;
 }
 
-static ExpressionNode_T *parse_expression(ParseState_T *P) {
+/* expects a valid mark in P->mark.  then, gathers all tokens until
+ * that mark and converts the expression into a postfix tree
+ * representation */
+static NodeExpression_T *parse_expression(ParseState_T *P) {
 
   ExpressionStack_T *operators = NULL;
   ExpressionStack_T *postfix   = NULL;
   ExpressionStack_T *tree      = NULL;
-  ExpressionNode_T *node;
-  ExpressionNode_T *top;
+  NodeExpression_T *node;
+  NodeExpression_T *top;
   const OperatorDescriptor_T *opinfo;
  
   /* ===== PHASE ONE | SHUNTING YARD ===== */
 
   /* implementation of the shunting yard algorithm.  converts the
-   * expression from infix notation to postix notation */
+  * expression from infix notation to postix notation */
   while (P->tok != P->mark) {
     LexToken_T *t = P->tok;
     switch (t->type) {
@@ -384,7 +475,7 @@ static ExpressionNode_T *parse_expression(ParseState_T *P) {
   
   /* empty remaining operator stack into postfix */
   while (expstack_top(&operators)) {
-    ExpressionNode_T *node = expstack_pop(&operators);
+    NodeExpression_T *node = expstack_pop(&operators);
     if (node->type == EXP_UNARY && (node->unop->optype == '(' || node->unop->optype == ')')) {
       parse_err(P, "mismatched parenthesis in expression");
     }
@@ -397,13 +488,11 @@ static ExpressionNode_T *parse_expression(ParseState_T *P) {
     expstack_push(&temp, expstack_pop(&postfix));
   }
   postfix = temp;
-  
-  /* print the stack for debug */
-  expstack_print(&postfix);
 
-  const char *malformed_message = "malformed expression";
 
   /* ===== PHASE TWO | EXPRESSION TREE ===== */
+  const char *malformed_message = "malformed expression";
+
   for (ExpressionStack_T *s = postfix; s != NULL; s = s->next) {
     node = s->node;
     switch (node->type) {
@@ -421,7 +510,7 @@ static ExpressionNode_T *parse_expression(ParseState_T *P) {
         expstack_push(&tree, node);
         break;
       case EXP_BINARY: {
-        ExpressionNode_T *leaves[2];
+        NodeExpression_T *leaves[2];
 
         /* binary operator? pop off two operands */
         for (size_t i = 0; i < 2; i++) {
@@ -443,7 +532,7 @@ static ExpressionNode_T *parse_expression(ParseState_T *P) {
     }
   }
 
-  ExpressionNode_T *final_value = expstack_pop(&tree);
+  NodeExpression_T *final_value = expstack_pop(&tree);
 
   if (tree != NULL) {
     parse_err(P, "an expression may only have one result");
@@ -474,15 +563,70 @@ static void mark_operator(ParseState_T *P, uint8_t inc, uint8_t end) {
   parse_err(P, "unexpected EOF while parsing expression.");
 }
 
+static void parse_expression_node(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_EXPRESSION);
+  free(node->nodeexp);
+  mark_operator(P, SPECO_NULL, ';');
+  node->nodeexp = parse_expression(P);
+  append_node(P, node);
+  eat(P, ";");
+}
+
 static bool should_parse_if(ParseState_T *P) {
   return on_identifier(P, "if");
 }
 
 static void parse_if(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_IF);
   eat(P, "if");
   eat(P, "(");
   mark_operator(P, '(', ')');
-  ExpressionNode_T *ex = parse_expression(P);
+  node->nodeif->cond = parse_expression(P);
+  eat(P, ")");
+  if (!on_identifier(P, "{")) {
+    parse_err(P, "expected '{' to follow if-statement");
+  }
+  append_node(P, node);
+}
+
+static bool should_parse_while(ParseState_T *P) {
+  return on_identifier(P, "while");
+}
+
+static void parse_while(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_WHILE);
+  eat(P, "while");
+  eat(P, "(");
+  mark_operator(P, '(', ')');
+  node->nodewhile->cond = parse_expression(P);
+  eat(P, ")");
+  if (!on_identifier(P, "{")) {
+    parse_err(P, "expected '{' to follow while-loop");
+  }
+  append_node(P, node);
+}
+
+static bool should_leave_block(ParseState_T *P) {
+  return on_identifier(P, "}");
+}
+
+static void leave_block(ParseState_T *P) {
+  eat(P, "}");
+  P->block = P->block->parent;
+  if (!P->block) {
+    parse_err(P, "unexpected '}' closing a block that doesn't exist");
+  }
+}
+
+static bool should_parse_block(ParseState_T *P) {
+  return on_identifier(P, "{");
+}
+
+static void parse_block(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_BLOCK);
+  eat(P, "{");
+  append_node(P, node);
+  P->block = node;
 }
 
 static ParseState_T *init_parsestate(LexState_T *L) {
@@ -496,11 +640,14 @@ static ParseState_T *init_parsestate(LexState_T *L) {
   P->builtin->int_t   = make_datatype(INTTYPE_NAME,  0, 0, INTTYPE_SIZE,  false);
   P->builtin->float_t = make_datatype(FLTTYPE_NAME,  0, 0, FLTTYPE_SIZE,  false);
   P->builtin->char_t  = make_datatype(CHARTYPE_NAME, 0, 0, CHARTYPE_SIZE, false);
+  P->builtin->bool_t  = make_datatype(BOOLTYPE_NAME, 0, 0, BOOLTYPE_SIZE, false);
 
   /* init abstract syntax tree with just a root.
    * the root is just a block, essentially parsing 
    * the entire file as: { ..file.. } */
   P->root = empty_node(NODE_BLOCK);
+  P->block = P->root;
+  P->backnode = NULL;
 
   P->tok = L->tokens;
 
@@ -515,11 +662,19 @@ ParseState_T *parse_file(LexState_T *L) {
   while (P->tok) {
     if (should_parse_if(P)) {
       parse_if(P);
+    } else if (should_parse_while(P)) {
+      parse_while(P);
+    } else if (should_parse_block(P)) {
+      parse_block(P);
+    } else if (should_leave_block(P)) {
+      leave_block(P);
+    } else {
+      parse_expression_node(P);
     }
-    advance(P, 1);
   }
-
-  printf("parsing complete\n");
+  
+  printf("AST printout:\n");
+  astnode_print(P->root, 0);
 
   return P;
 

@@ -19,12 +19,12 @@ typedef enum ASTNodeType {
   NODE_BLOCK
 } ASTNodeType_T;
 
-typedef enum ExpressionNodeType {
+typedef enum NodeExpressionType {
   EXP_UNARY,
   EXP_BINARY,
   EXP_INTEGER,
   EXP_FLOAT
-} ExpressionNodeType_T;
+} NodeExpressionType_T;
 
 typedef enum LeafSide {
   LEAF_NA,
@@ -47,22 +47,23 @@ typedef struct BuiltinTypes {
   Datatype_T *int_t;
   Datatype_T *float_t;
   Datatype_T *char_t;
+  Datatype_T *bool_t;
 } BuiltinTypes_T;
 
 typedef struct BinaryOpNode {
-  struct ExpressionNode *left_operand;
-  struct ExpressionNode *right_operand;
+  struct NodeExpression *left_operand;
+  struct NodeExpression *right_operand;
   uint8_t optype;
 } BinaryOpNode_T;
 
 typedef struct UnaryOpNode {
-  struct ExpressionNode *operand;
+  struct NodeExpression *operand;
   uint8_t optype;
 } UnaryOpNode_T;
 
-typedef struct ExpressionNode {
-  ExpressionNodeType_T type;
-  struct ExpressionNode *parent;
+typedef struct NodeExpression {
+  NodeExpressionType_T type;
+  struct NodeExpression *parent;
   LeafSide_T leaf;
   union {
     int64_t ival;
@@ -70,30 +71,36 @@ typedef struct ExpressionNode {
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
   };
-} ExpressionNode_T;
+} NodeExpression_T;
 
 typedef struct ExpressionStack {
-  ExpressionNode_T *node;
+  NodeExpression_T *node;
   struct ExpressionStack *next;
   struct ExpressionStack *prev;
 } ExpressionStack_T;
 
-typedef struct Expression {
-
-} Expression_T;
-
 typedef struct NodeWhile {
-  Expression_T *cond;
+  NodeExpression_T *cond;
 } NodeWhile_T;
 
 typedef struct NodeIf {
-  Expression_T *cond;
+  NodeExpression_T *cond;
 } NodeIf_T;
+
+typedef struct NodeBlock {
+  struct ASTNode *children;
+} NodeBlock_T;
 
 typedef struct ASTNode {
   ASTNodeType_T type;
-  void *node;
   struct ASTNode *next;
+  struct ASTNode *parent;
+  union {
+    NodeIf_T         *nodeif;
+    NodeWhile_T      *nodewhile;
+    NodeExpression_T *nodeexp;
+    NodeBlock_T      *nodeblock;
+  };
 } ASTNode_T;
 
 typedef struct ParseState {
@@ -102,6 +109,8 @@ typedef struct ParseState {
   LexToken_T *mark;
   BuiltinTypes_T *builtin;
   ASTNode_T *root;
+  ASTNode_T *block;
+  ASTNode_T *backnode;
 } ParseState_T;
 
 ParseState_T *parse_file(LexState_T *);

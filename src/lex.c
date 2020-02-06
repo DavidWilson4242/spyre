@@ -99,7 +99,7 @@ static char *token_tostring(LexToken_T *token) {
   if (token->type == TOKEN_INTEGER || token->type == TOKEN_CHARACTER_LITERAL) {
     buf = malloc(sizeof(char) * 16);
     assert(buf);
-    snprintf(buf, 16, "%ld", token->ival);
+    snprintf(buf, 16, "%lld", token->ival);
   } else if (token->type == TOKEN_FLOAT) {
     buf = malloc(sizeof(char) * 32);
     assert(buf);
@@ -540,9 +540,6 @@ LexState_T *lex_file(const char *filename) {
     }
 
   }
-
-
-  print_tokens(L->tokens);
 
   return L;
 }
