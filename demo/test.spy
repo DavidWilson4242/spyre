@@ -1,5 +1,19 @@
-x: int;
-y: float;
-if (x + y < 20) {
-  z: int;
+Vector: struct {
+  x: int;
+  y: int;
 }
+
+generic<T>
+x := (a: T, b: T) -> T {
+  return a + b;
+}
+
+{
+  
+  x: ^int[][];
+  x = new ^int[20][20];
+
+  x := new ^int[20][20];
+
+}
+
