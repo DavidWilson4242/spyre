@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+#include "hash.h"
 
 typedef struct SpyreAvailableAddress {
   size_t addr;
@@ -16,8 +17,16 @@ typedef struct SpyreMemoryMap {
   SpyreAvailableAddress_T *avail;
 } SpyreMemoryMap_T;
 
+typedef struct SpyreInternalType {
+  char *type_name;
+  size_t size;
+  size_t nmembers;
+  char **members;
+} SpyreInternalType_T;
+
 typedef struct SpyreState {
   SpyreMemoryMap_T *memory;
+  SpyreHash_T *internal_types;
 } SpyreState_T;
 
 SpyreState_T *spyre_init();
