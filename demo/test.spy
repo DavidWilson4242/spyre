@@ -1,19 +1,9 @@
-Vector: struct {
-  x: int;
-  y: int;
-}
+Vector2: struct {
+	x: int;
+	y: int;
+};
 
-generic<T>
-x := (a: T, b: T) -> T {
-  return a + b;
-}
-
-{
-  
-  x: ^int[][];
-  x = new ^int[20][20];
-
-  x := new ^int[20][20];
-
-}
-
+Matrix: struct {
+	v1: Vector2;
+	v2: Vector2;
+};

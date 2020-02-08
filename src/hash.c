@@ -10,7 +10,7 @@ static size_t default_hash(const char *key) {
   size_t h = 5381;
   int c;
 
-  while (c = *key++) {
+  while ((c = *key++)) {
     h = ((h << 5) + h) + c;
   }
 

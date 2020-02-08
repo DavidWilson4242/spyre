@@ -1,7 +1,7 @@
 CC = gcc
 CF = -std=c11 -g -O2
 COMPILE_OBJ = build/main.o build/lex.o build/parse.o
-VM_OBJ = build/spyre.o build/vmtest.o build/hash.o
+VM_OBJ = build/gc.o build/spyre.o build/vmtest.o build/hash.o
 
 clean:
 	rm -Rf build/*.o
@@ -32,3 +32,6 @@ build/vmtest.o:
 
 build/spyre.o:
 	$(CC) $(CF) -c src/spyre.c -o build/spyre.o
+
+build/gc.o:
+	$(CC) $(CF) -c src/gc.c -o build/gc.o
