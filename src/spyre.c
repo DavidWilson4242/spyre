@@ -80,8 +80,8 @@ static void init_stack(SpyreState_T *S) {
 }
 
 static inline int64_t spyre_pop_int(SpyreState_T *S) {
-  S->ip -= sizeof(int64_t);
-  return *(int64_t *)S->stack;
+  S->sp -= sizeof(int64_t);
+  return *(int64_t *)&S->stack[S->sp];
 }
 
 static inline void spyre_push_int(SpyreState_T *S, int64_t value) {
@@ -202,16 +202,36 @@ static int64_t spyre_read_i64(SpyreState_T *S) {
 static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
 
   uint8_t opcode;
-  int64_t v0;
+  int64_t v0, v1, v2;
+  bool running = true;
 
-  while ((opcode = spyre_read_u8(S))) {
+  S->code = bytecode;
+  S->ip = 0;
+
+  while (running && (opcode = spyre_read_u8(S))) {
     switch (opcode) {
+      case INS_HALT:
+        running = false;
+        break;
       case INS_IPUSH:
         v0 = spyre_read_i64(S);
         spyre_push_int(S, v0);
         break;
       case INS_IPOP:
         spyre_pop_int(S);
+        break;
+      case INS_IADD:
+        v1 = spyre_pop_int(S);
+        v0 = spyre_pop_int(S);
+        spyre_push_int(S, v0 + v1);
+        break;
+      case INS_ISUB:
+        v1 = spyre_pop_int(S);
+        v0 = spyre_pop_int(S);
+        spyre_push_int(S, v0 - v1);
+        break;
+      case INS_IPRINT:
+        printf("%lld\n", spyre_pop_int(S)); 
         break;
       default:
         break;
@@ -229,7 +249,15 @@ SpyreState_T *spyre_init() {
   init_stack(S);
   init_types(S);
 
-  spyre_execute(S);
+  uint8_t code[] = {
+    0x01, 1, 0, 0, 0, 0, 0, 0, 0,
+    0x01, 2, 0, 0, 0, 0, 0, 0, 0,
+    0x04,
+    0x90,
+    0x00
+  };
+
+  spyre_execute(S, code);
 
   return S;
 

@@ -6,8 +6,14 @@
 #include <stdbool.h>
 #include "hash.h"
 
-#define INS_IPUSH 0x01
-#define INS_IPOP  0x02
+#define INS_HALT    0x00
+#define INS_IPUSH   0x01
+#define INS_IPOP    0x02
+#define INS_IADD    0x03
+#define INS_ISUB    0x04
+#define INS_IPRINT  0x90
+#define INS_FPRINT  0x91
+#define INS_PPRINT  0x92
 
 /* at the head of every segment allocation */
 typedef struct MemoryDescriptor {
