@@ -10,8 +10,7 @@ Spyre is a hobbist programming language.
 </ul>
 
 <h3>Installation</h3>
-<pre><code>
-  git clone https://DavidWilson4242/spyre.git</li>
-  cd spyre
-  make spyre
+<pre><code>git clone https://DavidWilson4242/spyre.git
+cd spyre
+make spyre
 </code></pre>
