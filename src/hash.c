@@ -41,6 +41,12 @@ void hash_insert(SpyreHash_T *table, const char *key, void *value) {
     table->buckets[index] = entry;
   }
 
+  table->size++;
+
+}
+
+void *hash_remove(SpyreHash_T *table, const char *key) {
+  return NULL;
 }
 
 void *hash_get(SpyreHash_T *table, const char *key) {
@@ -53,6 +59,17 @@ void *hash_get(SpyreHash_T *table, const char *key) {
   return NULL;
 }
 
+void hash_foreach(SpyreHash_T *table, 
+                  void (*map)(const char *key, void *value, void *cl0),
+                  void *cl) {
+  SpyreEntry_T *e;
+  for (size_t i = 0; i < table->capacity; i++) {
+    for (SpyreEntry_T *e = table->buckets[i]; e != NULL; e = e->next) {
+      map(e->key, e->value, cl); 
+    }
+  }   
+}
+
 SpyreHash_T *hash_init() {
   
   SpyreHash_T *table = malloc(sizeof(SpyreHash_T));
@@ -60,6 +77,7 @@ SpyreHash_T *hash_init() {
   table->hash = default_hash;
   table->capacity = HASH_INITIAL_CAPACITY;
   table->buckets = calloc(HASH_INITIAL_CAPACITY, sizeof(SpyreEntry_T *));
+  table->size = 0;
 
   return table;
 

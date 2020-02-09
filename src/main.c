@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
 		case COMP_FULL:
 			L = lex_file(infile);
 			P = parse_file(L);
+      spyre_execute_with_context(NULL, P);
 			lex_cleanup(&L);
 			parse_cleanup(&P);
 			break;

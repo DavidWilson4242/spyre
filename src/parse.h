@@ -2,6 +2,7 @@
 #define PARSE_H
 
 #include "lex.h"
+#include "hash.h"
 
 struct ASTNode;
 struct FunctionDescriptor;
@@ -68,7 +69,7 @@ typedef struct FunctionDescriptor {
 } FunctionDescriptor_T;
 
 typedef struct StructDescriptor_T {
-  Declaration_T *members;
+  SpyreHash_T *members;
 } StructDescriptor_T;
 
 typedef struct BuiltinTypes {
@@ -139,6 +140,7 @@ typedef struct ParseState {
   LexToken_T *tok;
   LexToken_T *mark;
   BuiltinTypes_T *builtin;
+  SpyreHash_T *usertypes;
   ASTNode_T *root;
   ASTNode_T *block;
   ASTNode_T *backnode;

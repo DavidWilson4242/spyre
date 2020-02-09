@@ -12,6 +12,13 @@
 #define MEMORY_INITIAL_CAPACITY 128
 #define STACK_INITIAL_CAPACITY 1024
 
+/* used as closure argument when loading in struct members */
+typedef struct MemberRegistrationHelper {
+  SpyreState_T *S;
+  SpyreInternalType_T *parent;
+  size_t mbr_index;
+} MemberRegistrationHelper_T;
+
 void spyre_assert(bool cond) {
   if (!cond) {
     fprintf(stderr, "SPYRE CRITICAL: out of memory");
@@ -39,74 +46,24 @@ static void init_types(SpyreState_T *S) {
   spyre_assert(type_int);
   type_int->type_name = "int";
   type_int->nmembers = 0;
-  type_int->totmembers = 0;
   type_int->members = NULL;
 
   type_float = malloc(sizeof(SpyreInternalType_T));
   spyre_assert(type_float);
   type_float->type_name = "float";
   type_float->nmembers = 0;
-  type_float->totmembers = 0;
   type_float->members = NULL;
 
   type_bool = malloc(sizeof(SpyreInternalType_T));
   spyre_assert(type_bool);
   type_bool->type_name = "bool";
   type_bool->nmembers = 0;
-  type_bool->totmembers = 0;
   type_bool->members = NULL;
 
   register_type(S, type_int);
   register_type(S, type_float);
   register_type(S, type_bool);
 
-  size_t a0, a1;
-
-  SpyreInternalMember_T *int0 = malloc(sizeof(SpyreInternalMember_T));
-  int0->type = get_type(S, "int");
-  int0->ptrdim = 0;
-  int0->arrdim = 0;
-  int0->byte_offset = 0;
-
-  SpyreInternalMember_T *int1 = malloc(sizeof(SpyreInternalMember_T));
-  int1->type = get_type(S, "int");
-  int1->ptrdim = 0;
-  int1->arrdim = 0;
-  int1->byte_offset = 8;
-
-  SpyreInternalType_T *vec2 = malloc(sizeof(SpyreInternalType_T));
-  vec2->type_name = "Vector2";
-  vec2->nmembers = 2;
-  vec2->members = malloc(sizeof(SpyreInternalMember_T) * 2);
-  vec2->members[0] = int0;
-  vec2->members[1] = int1;
-  register_type(S, vec2);
-
-  SpyreInternalMember_T *v0 = malloc(sizeof(SpyreInternalMember_T));
-  v0->type = get_type(S, "Vector2");
-  v0->ptrdim = 0;
-  v0->arrdim = 0;
-  v0->byte_offset = 0;
-
-  SpyreInternalMember_T *v1 = malloc(sizeof(SpyreInternalMember_T));
-  v1->type = get_type(S, "Vector2");
-  v1->ptrdim = 0;
-  v1->arrdim = 0;
-  v1->byte_offset = 8;
-
-  SpyreInternalType_T *matrix = malloc(sizeof(SpyreInternalType_T));
-  matrix->type_name = "Matrix";
-  matrix->nmembers = 2;
-  matrix->members = malloc(sizeof(SpyreInternalMember_T) * 2);
-  matrix->members[0] = v0;
-  matrix->members[1] = v1;
-  register_type(S, matrix);
-
-  //a0 = spymem_alloc(S, &desc);
-  //spyre_push_ptr(S, a0);
-  //spygc_track_local(S, 0);
-
-  //spygc_execute(S);
 }
 
 static void init_memory(SpyreState_T *S) {
@@ -307,6 +264,72 @@ void spyre_execute_file(const char *fname) {
   free(buffer);
 
   spygc_execute(S);
+
+}
+
+static void map_register_member(const char *key, void *mbr, void *cl) {
+  MemberRegistrationHelper_T *helper = cl;
+  Declaration_T *member = mbr;
+  SpyreInternalMember_T *intmbr = malloc(sizeof(SpyreInternalMember_T));
+  spyre_assert(intmbr != NULL);
+  intmbr->type = get_type(helper->S, member->dt->type_name);
+  intmbr->ptrdim = member->dt->ptrdim;
+  intmbr->arrdim = member->dt->arrdim;
+  intmbr->byte_offset = sizeof(size_t) * helper->mbr_index;
+  helper->parent->members[helper->mbr_index] = intmbr;
+  helper->mbr_index++;
+
+  if (intmbr->type == NULL) {
+    fprintf(stderr, "critical: couldn't find member '%s''s type (%s)\n", 
+                    key, member->dt->type_name);
+    exit(EXIT_FAILURE);
+  }
+
+  printf("registering member %s\n", intmbr->type->type_name);
+}
+
+/* registers all top-level types.  does not register members.
+ * register_all_members is called afterwards to process members */
+static void map_register_type(const char *key, void *dt, void *cl) {
+  SpyreState_T *S = cl;
+  Datatype_T *datatype = (Datatype_T *)dt;
+  SpyreInternalType_T *type = malloc(sizeof(SpyreInternalType_T));
+  spyre_assert(type != NULL);
+  type->type_name = malloc(strlen(key) + 1);
+  spyre_assert(type->type_name != NULL);
+  strcpy(type->type_name, key);
+  type->nmembers = datatype->sdesc->members->size;
+  type->members = malloc(sizeof(SpyreInternalMember_T) * type->nmembers);
+  spyre_assert(type->members);
+  register_type(S, type);
+
+  printf("registering type %s\n", key);
+}
+
+static void map_register_all_members(const char *key, void *dt, void *cl) {
+  SpyreState_T *S = cl;
+  Datatype_T *datatype = dt;
+  SpyreInternalType_T *type = get_type(S, datatype->type_name);
+
+  printf("registering members of type %s\n", key);
+
+  /* now register each member */
+  MemberRegistrationHelper_T helper;
+  helper.parent = type;
+  helper.mbr_index = 0;
+  helper.S = S;
+  hash_foreach(datatype->sdesc->members, map_register_member, &helper);
+}
+
+/* execute the FNAME bytecode file with context.  The parse state is
+ * assumed to have parsed the file FNAME, and extracted relevant information
+ * such as user-defined types (structs) */
+void spyre_execute_with_context(const char *fname, ParseState_T *P) {
+  
+  SpyreState_T *S = spyre_init();
+  SpyreHash_T *usertypes = P->usertypes;
+  hash_foreach(usertypes, map_register_type, S);
+  hash_foreach(usertypes, map_register_all_members, S);
 
 }
 

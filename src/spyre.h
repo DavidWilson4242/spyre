@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "hash.h"
+#include "parse.h"
 
 #define DEBUG
 
@@ -74,7 +75,6 @@ typedef struct SpyreInternalMember {
 typedef struct SpyreInternalType {
   char *type_name;
   size_t nmembers;
-  size_t totmembers;
   SpyreInternalMember_T **members;
 } SpyreInternalType_T;
 
@@ -90,10 +90,9 @@ typedef struct SpyreState {
 
 SpyreState_T *spyre_init();
 void spyre_execute_file(const char *);
+void spyre_execute_with_context(const char *, ParseState_T *);
 void spyre_assert(bool);
 size_t spyre_local_asptr(SpyreState_T *, size_t);
-size_t spyre_alloc(SpyreState_T *, MemoryDescriptor_T *);
-void spyre_free(SpyreState_T *, size_t);
 SpyreInternalType_T *get_type(SpyreState_T *, const char *);
 
 #endif

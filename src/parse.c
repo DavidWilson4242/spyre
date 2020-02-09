@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "lex.h"
 #include "parse.h"
+#include "hash.h"
 
 /* this file converts a stream of tokens into an abstract syntax tree
  * and performs all necessary validation before the bytecode generation stage */
@@ -117,6 +118,18 @@ static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigne
 
   return dt;
 
+}
+
+/* creates an empty datatype with empty fields */
+static Datatype_T *make_empty_datatype(const char *type_name) {
+  Datatype_T *dt = calloc(1, sizeof(Datatype_T));
+  assert(dt);
+
+  dt->type_name = malloc(strlen(type_name) + 1);
+  assert(dt->type_name);
+  strcpy(dt->type_name, type_name);
+
+  return dt;
 }
 
 /* does not clone members.  leaves as NULL.  this is used
@@ -266,7 +279,7 @@ static inline void advance(ParseState_T *P, int n) {
 static LexToken_T *peek(ParseState_T *P, int n) {
   LexToken_T *token = P->tok;
   for (size_t i = 0; i < n; i++) {
-    if (!token) {
+    if (token == NULL) {
       return NULL;
     }
     token = token->next;
@@ -274,22 +287,24 @@ static LexToken_T *peek(ParseState_T *P, int n) {
   return token;
 }
 
-static bool on_identifier(ParseState_T *P, const char *id) {
-  if (!P->tok) {
+static bool on_string(ParseState_T *P, const char *id, LexToken_T *tok) {
+  LexToken_T *t = (tok != NULL) ? tok : P->tok;
+  if (t == NULL) {
     return false;
   }
-  return !strcmp(P->tok->as_string, id);
+  return !strcmp(t->as_string, id);
 }
 
-static bool is_tok_type(ParseState_T *P, LexTokenType_T type) {
-  if (!P->tok) {
+static bool is_tok_type(ParseState_T *P, LexTokenType_T type, LexToken_T *tok) {
+  LexToken_T *t = (tok != NULL) ? tok : P->tok;
+  if (t == NULL) {
     return false;
   }
-  return P->tok->type == type;
+  return t->type == type;
 }
 
 static void eat(ParseState_T *P, const char *id) {
-  if (!on_identifier(P, id)) {
+  if (!on_string(P, id, NULL)) {
     parse_err(P, "expected token '%s', got '%s'", id, P->tok->as_string);
   }
   advance(P, 1);
@@ -676,70 +691,6 @@ static void mark_operator(ParseState_T *P, uint8_t inc, uint8_t end) {
   parse_err(P, "unexpected EOF while parsing expression.");
 }
 
-static void parse_expression_node(ParseState_T *P) {
-  if (on_identifier(P, ";")) {
-    eat(P, ";");
-  }
-  ASTNode_T *node = empty_node(NODE_EXPRESSION);
-  free(node->nodeexp);
-  mark_operator(P, SPECO_NULL, ';');
-  node->nodeexp = parse_expression(P);
-  append_node(P, node);
-  eat(P, ";");
-}
-
-static bool should_parse_if(ParseState_T *P) {
-  return on_identifier(P, "if");
-}
-
-static void parse_if(ParseState_T *P) {
-  ASTNode_T *node = empty_node(NODE_IF);
-  eat(P, "if");
-  eat(P, "(");
-  mark_operator(P, '(', ')');
-  node->nodeif->cond = parse_expression(P);
-  eat(P, ")");
-  append_node(P, node);
-}
-
-static bool should_parse_while(ParseState_T *P) {
-  return on_identifier(P, "while");
-}
-
-static void parse_while(ParseState_T *P) {
-  ASTNode_T *node = empty_node(NODE_WHILE);
-  eat(P, "while");
-  eat(P, "(");
-  mark_operator(P, '(', ')');
-  node->nodewhile->cond = parse_expression(P);
-  eat(P, ")");
-  append_node(P, node);
-}
-
-static bool should_leave_block(ParseState_T *P) {
-  return on_identifier(P, "}");
-}
-
-static void leave_block(ParseState_T *P) {
-  eat(P, "}");
-  P->block = P->block->parent;
-  if (!P->block) {
-    parse_err(P, "unexpected '}' closing a block that doesn't exist");
-  }
-}
-
-static bool should_parse_block(ParseState_T *P) {
-  return on_identifier(P, "{");
-}
-
-static void parse_block(ParseState_T *P) {
-  ASTNode_T *node = empty_node(NODE_BLOCK);
-  eat(P, "{");
-  append_node(P, node);
-  P->block = node;
-}
-
-/* TODO add support for custom types (structs) */
 static Datatype_T *datatype_from_name(ParseState_T *P, const char *type_name) {
   Datatype_T *checktypes[] = {P->builtin->int_t,
     P->builtin->float_t,
@@ -750,7 +701,7 @@ static Datatype_T *datatype_from_name(ParseState_T *P, const char *type_name) {
       return clone_datatype(checktypes[i]);
     }
   }
-  return NULL;
+  return hash_get(P->usertypes, type_name);
 }
 
 static Datatype_T *parse_datatype(ParseState_T *P) {
@@ -762,12 +713,17 @@ static Datatype_T *parse_datatype(ParseState_T *P) {
   return dt;
 }
 
-static bool should_parse_declaration(ParseState_T *P) {
-  LexToken_T *next = peek(P, 1);
-  if (!next || next->type != TOKEN_OPERATOR) {
-    return false;
+static void parse_expression_node(ParseState_T *P) {
+  if (on_string(P, ";", NULL)) {
+    eat(P, ";");
+    return;
   }
-  return is_tok_type(P, TOKEN_IDENTIFIER) && next->oval == ':';
+  ASTNode_T *node = empty_node(NODE_EXPRESSION);
+  free(node->nodeexp);
+  mark_operator(P, SPECO_NULL, ';');
+  node->nodeexp = parse_expression(P);
+  append_node(P, node);
+  eat(P, ";");
 }
 
 static Declaration_T *parse_declaration(ParseState_T *P) {
@@ -781,6 +737,115 @@ static Declaration_T *parse_declaration(ParseState_T *P) {
   return decl;
 }
 
+static bool should_parse_if(ParseState_T *P) {
+  return on_string(P, "if", NULL);
+}
+
+/* syntax:
+ * if (condition) ...
+ */
+static void parse_if(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_IF);
+  eat(P, "if");
+  eat(P, "(");
+  mark_operator(P, '(', ')');
+  node->nodeif->cond = parse_expression(P);
+  eat(P, ")");
+  append_node(P, node);
+}
+
+static bool should_parse_while(ParseState_T *P) {
+  return on_string(P, "while", NULL);
+}
+
+/* syntax:
+ * while (condition) ...
+ */
+static void parse_while(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_WHILE);
+  eat(P, "while");
+  eat(P, "(");
+  mark_operator(P, '(', ')');
+  node->nodewhile->cond = parse_expression(P);
+  eat(P, ")");
+  append_node(P, node);
+}
+
+static bool should_parse_struct(ParseState_T *P) {
+  return is_tok_type(P, TOKEN_IDENTIFIER, NULL)
+         && on_string(P, ":", peek(P, 1))
+         && on_string(P, "struct", peek(P, 2));
+}
+
+/* syntax:
+ * typename: struct { ... } */
+static void parse_struct(ParseState_T *P) {
+  Declaration_T *member;
+  Datatype_T *dt;
+  
+  /* ensure no duplicates */
+  if (hash_get(P->usertypes, P->tok->sval)) {
+    parse_err(P, "redeclaration of type '%s'\n", P->tok->sval);
+  }
+
+  dt = make_empty_datatype(P->tok->sval);
+  safe_eat(P);
+
+  dt->type = DT_STRUCT;
+  dt->sdesc = malloc(sizeof(StructDescriptor_T));
+  assert(dt->sdesc);
+  dt->sdesc->members = hash_init();
+
+  eat(P, ":");
+  eat(P, "struct");
+  eat(P, "{");
+  
+  /* insert new members into the struct's member table.  prevent
+   * duplicate entries */
+  while (!on_string(P, "}", NULL)) {
+    member = parse_declaration(P); 
+    if (hash_get(dt->sdesc->members, member->dt->type_name) != NULL) {
+      parse_err(P, "duplicate member '%s' in struct '%s'\n", member->dt->type_name);
+    }
+    hash_insert(dt->sdesc->members, member->name, member);
+  }
+
+  eat(P, "}");
+
+  /* add datatype to table */
+  hash_insert(P->usertypes, dt->type_name, dt);
+}
+
+static bool should_leave_block(ParseState_T *P) {
+  return on_string(P, "}", NULL);
+}
+
+static void leave_block(ParseState_T *P) {
+  eat(P, "}");
+  P->block = P->block->parent;
+  if (!P->block) {
+    parse_err(P, "unexpected '}' closing a block that doesn't exist");
+  }
+}
+
+static bool should_parse_block(ParseState_T *P) {
+  return on_string(P, "{", NULL);
+}
+
+static void parse_block(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_BLOCK);
+  eat(P, "{");
+  append_node(P, node);
+  P->block = node;
+}
+
+static bool should_parse_declaration(ParseState_T *P) {
+  LexToken_T *next = peek(P, 1);
+  if (!next || next->type != TOKEN_OPERATOR) {
+    return false;
+  }
+  return is_tok_type(P, TOKEN_IDENTIFIER, NULL) && next->oval == ':';
+}
 static ParseState_T *init_parsestate(LexState_T *L) {
 
   ParseState_T *P = malloc(sizeof(ParseState_T));
@@ -803,6 +868,8 @@ static ParseState_T *init_parsestate(LexState_T *L) {
 
   P->tok = L->tokens;
 
+  P->usertypes = hash_init();
+
   return P;
 
 }
@@ -820,6 +887,8 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_block(P);
     } else if (should_leave_block(P)) {
       leave_block(P);
+    } else if (should_parse_struct(P)) {
+      parse_struct(P);
     } else if (should_parse_declaration(P)) {
       add_variable_to_block(P, parse_declaration(P));
     } else {

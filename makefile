@@ -1,5 +1,5 @@
 CC = gcc
-CF = -std=c11 -g -O2
+CF = -std=c11 -Wno-format -g -O2
 COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o
 VM_OBJ = build/gc.o build/spyre.o build/vmtest.o build/hash.o
 ASM_OBJ = build/asmtest.o build/asm.o build/lex.o build/hash.o
