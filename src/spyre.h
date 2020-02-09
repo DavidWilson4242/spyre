@@ -6,14 +6,37 @@
 #include <stdbool.h>
 #include "hash.h"
 
+#define DEBUG
+
 #define INS_HALT    0x00
+
+/* integer arithmetic */
 #define INS_IPUSH   0x01
 #define INS_IPOP    0x02
 #define INS_IADD    0x03
 #define INS_ISUB    0x04
+#define INS_IMUL    0x05
+#define INS_IDIV    0x06
+
+/* local management */
+#define INS_LDL     0x80 /* load local */
+#define INS_SVL     0x81 /* save TS to local */
+#define INS_DER     0x82 /* get first word of segment on TS */
+#define INS_RESL    0x83 /* reserve locals */
+#define INS_LDMBR   0x84 /* load member of segment on TS*/
+#define INS_SVMBR   0x85 /* save value TS of segment TS-1 member */
+
+/* debug */
 #define INS_IPRINT  0x90
 #define INS_FPRINT  0x91
 #define INS_PPRINT  0x92
+
+/* memory management and GC */
+#define INS_ALLOC   0xA0
+#define INS_FREE    0xA1
+#define INS_TAGL    0xA2
+#define INS_UNTAGL  0xA3
+#define INS_UNTAGLS 0xA4
 
 /* at the head of every segment allocation */
 typedef struct MemoryDescriptor {
@@ -66,6 +89,7 @@ typedef struct SpyreState {
 } SpyreState_T;
 
 SpyreState_T *spyre_init();
+void spyre_execute_file(const char *);
 void spyre_assert(bool);
 size_t spyre_local_asptr(SpyreState_T *, size_t);
 size_t spyre_alloc(SpyreState_T *, MemoryDescriptor_T *);
@@ -73,59 +97,3 @@ void spyre_free(SpyreState_T *, size_t);
 SpyreInternalType_T *get_type(SpyreState_T *, const char *);
 
 #endif
-
-/* 
- size_t a0, a1;
-
- SpyreInternalMember_T *int0 = malloc(sizeof(SpyreInternalMember_T));
- int0->type = get_type(S, "int");
- int0->ptrdim = 0;
- int0->arrdim = 0;
- int0->byte_offset = 0;
-
- SpyreInternalMember_T *int1 = malloc(sizeof(SpyreInternalMember_T));
- int1->type = get_type(S, "int");
- int1->ptrdim = 0;
- int1->arrdim = 0;
- int1->byte_offset = 8;
-
- SpyreInternalType_T *vec2 = malloc(sizeof(SpyreInternalType_T));
- vec2->type_name = "Vector2";
- vec2->nmembers = 2;
- vec2->members = malloc(sizeof(SpyreInternalMember_T) * 2);
- vec2->members[0] = int0;
- vec2->members[1] = int1;
- register_type(S, vec2);
-
- SpyreInternalMember_T *v0 = malloc(sizeof(SpyreInternalMember_T));
- v0->type = get_type(S, "Vector2");
- v0->ptrdim = 0;
- v0->arrdim = 0;
- v0->byte_offset = 0;
-
- SpyreInternalMember_T *v1 = malloc(sizeof(SpyreInternalMember_T));
- v1->type = get_type(S, "Vector2");
- v1->ptrdim = 0;
- v1->arrdim = 0;
- v1->byte_offset = 8;
-
- SpyreInternalType_T *matrix = malloc(sizeof(SpyreInternalType_T));
- matrix->type_name = "Matrix";
- matrix->nmembers = 2;
- matrix->members = malloc(sizeof(SpyreInternalMember_T) * 2);
- matrix->members[0] = v0;
- matrix->members[1] = v1;
- register_type(S, matrix);
-
- MemoryDescriptor_T desc;
- desc.type_name = "Matrix";
- desc.arrdim = 0;
- desc.arrs = NULL;
- desc.ptrdim = 0;
-
- a0 = spyre_alloc(S, &desc);
- spyre_push_ptr(S, a0);
- gc_track_local(S, 0);
-
- gc_execute(S);
-*/

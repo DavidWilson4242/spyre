@@ -1,16 +1,14 @@
 CC = gcc
 CF = -std=c11 -g -O2
-COMPILE_OBJ = build/main.o build/lex.o build/parse.o
+COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o
 VM_OBJ = build/gc.o build/spyre.o build/vmtest.o build/hash.o
+ASM_OBJ = build/asmtest.o build/asm.o build/lex.o build/hash.o
 
 clean:
 	rm -Rf build/*.o
 
 spyre: build $(COMPILE_OBJ)
 	$(CC) $(CF) $(COMPILE_OBJ) -o spyre
-
-vm: build $(VM_OBJ)
-	$(CC) $(CF) $(VM_OBJ) -o vm
 
 build:
 	mkdir build
@@ -27,11 +25,14 @@ build/main.o:
 build/hash.o:
 	$(CC) $(CF) -c src/hash.c -o build/hash.o
 
-build/vmtest.o:
-	$(CC) $(CF) -c src/vmtest.c -o build/vmtest.o
-
 build/spyre.o:
 	$(CC) $(CF) -c src/spyre.c -o build/spyre.o
 
 build/gc.o:
 	$(CC) $(CF) -c src/gc.c -o build/gc.o
+
+build/asm.o:
+	$(CC) $(CF) -c src/asm.c -o build/asm.o
+
+build/memory.o:
+	$(CC) $(CF) -c src/memory.c -o build/memory.o

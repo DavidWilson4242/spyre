@@ -1,27 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "gc.h"
+#include "memory.h"
+
+/* this file contains all functions related to garbage collection.  It implements
+ * the two main stages of garbage collection: mark and sweep */
 
 static void domark(SpyreState_T *S, size_t seg_id) {
+	uint8_t *rawbuf;
   uint8_t **allocs = S->memory->allocs;
   MemoryDescriptor_T *mdesc = (MemoryDescriptor_T *)&allocs[seg_id][0];
   SpyreInternalType_T *typeinfo = get_type(S, mdesc->type_name);
   SpyreInternalMember_T *member;
   SpyreInternalType_T *meminfo;
   size_t mem_seg_id;
+
+	/* base case */
+	if (mdesc->mark) {
+		return;
+	}
   
   mdesc->mark = true;
   printf("marked seg_id %zu\n", seg_id);
   
   for (size_t i = 0; i < typeinfo->nmembers; i++) {
+		rawbuf = spymem_rawbuf(S, seg_id);
     member = typeinfo->members[i];
     meminfo = member->type;
     if (meminfo->nmembers > 0) {
-      printf("checking member...\n");
-      mem_seg_id = *(size_t *)&allocs[seg_id][sizeof(MemoryDescriptor_T) + member->byte_offset];
+      mem_seg_id = *(size_t *)&rawbuf[member->byte_offset];
       if (mem_seg_id != 0) {
         domark(S, mem_seg_id);
-      } else printf("seg id was 0\n");
+      }
     }
   }
   
@@ -59,14 +69,14 @@ static void sweep(SpyreState_T *S) {
     if (allocs[i] != NULL) {
       typeinfo = (MemoryDescriptor_T *)&allocs[i][0]; 
       if (!typeinfo->mark) {
-        spyre_free(S, i);
+        spymem_free(S, i);
         printf("freed seg_id %zu\n", i);
       }
     }
   }
 }
 
-void gc_execute(SpyreState_T *S) {
+void spygc_execute(SpyreState_T *S) {
   printf("******** GC RUNNING ********\n");
   printf("==== UNMARKING ====\n");
   unmark(S);
@@ -80,7 +90,7 @@ void gc_execute(SpyreState_T *S) {
   printf("****************************\n\n");
 }
 
-void gc_track_local(SpyreState_T *S, size_t local_index) {
+void spygc_track_local(SpyreState_T *S, size_t local_index) {
   size_t stack_addr = S->bp + local_index;
   SpyreAddressList_T *localtag = malloc(sizeof(SpyreAddressList_T));
   spyre_assert(localtag != NULL);
@@ -96,8 +106,25 @@ void gc_track_local(SpyreState_T *S, size_t local_index) {
   }
 }
 
+/* untags one local variable */
+void spygc_untrack_local(SpyreState_T *S, size_t local_index) {
+	SpyreAddressList_T *prev = NULL;
+	for (SpyreAddressList_T *a = S->memory->localtags; a != NULL; a = a->next) {
+		if (a->addr == local_index) {
+			if (prev != NULL) {
+				prev->next = a->next;
+			} else {
+				S->memory->localtags = a->next;
+			}
+			free(a);
+			break;
+		}
+		prev = a;
+	}
+}
+
 /* untags local variables from root node stack */
-void gc_untrack_locals(SpyreState_T *S, size_t num_locals) {
+void spygc_untrack_locals(SpyreState_T *S, size_t num_locals) {
   SpyreAddressList_T *pop;
   for (size_t i = 0; i < num_locals; i++) {
     if (!S->memory->localtags) {

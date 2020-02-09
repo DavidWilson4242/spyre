@@ -3,6 +3,9 @@
 #include <assert.h>
 #include "hash.h"
 
+/* this file contains a hashtable implementation used by various other parts of Spyre.
+ * keys are C strings, values are void* */
+
 /* default hash function that is used.  can be overwritten
  * by reassigning to SpyreHash_T->hash */
 /* credit: http://www.cse.yorku.ca/~oz/hash.html */

@@ -7,6 +7,9 @@
 #include "lex.h"
 #include "parse.h"
 
+/* this file converts a stream of tokens into an abstract syntax tree
+ * and performs all necessary validation before the bytecode generation stage */
+
 #define INTTYPE_NAME  "int"
 #define FLTTYPE_NAME  "float"
 #define CHARTYPE_NAME "char"
