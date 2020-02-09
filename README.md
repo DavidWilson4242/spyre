@@ -1,5 +1,5 @@
 <h1>Spyre Programming Langage</h1>
-Spyre is a hobbist programming language.
+Spyre is a hobbyist programming language.
 
 <h3>Key features</h3>
 <ul>
