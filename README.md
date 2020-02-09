@@ -16,11 +16,11 @@ make spyre
 </code></pre>
 
 <h3>Usage</h3>
-<h6>Compiling</h6>
+<h4>Compiling</h4>
 <pre><code>spyre -c inputfile.spy -o outputfile.spyb</code></pre>
-<h6>Assembling from instruction file</h6>
+<h4>Assembling from instruction file</h4>
 <pre><code>spyre -a inputfile.spys -o outputfile.spyb</code></pre>
-<h6>Running from bytecode</h6>
+<h4>Running from bytecode</h4>
 <pre><code>spyre -r inputfile.spyb</code></pre>
-<h6>Just run my code!</h6>
+<h4>Just run my code!</h4>
 <pre><code>spyre inputfile.spy</code></pre>
