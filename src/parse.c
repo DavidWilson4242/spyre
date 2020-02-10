@@ -398,11 +398,7 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
   NodeExpression_T *top;
   const OperatorDescriptor_T *top_desc;
 
-  while (1) {
-    top = expstack_top(operators);
-    if (!top) {
-      break;
-    }
+  while ((top = expstack_top(operators)) != NULL) {
 
     switch (top->type) {
       case EXP_BINARY:
