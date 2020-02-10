@@ -61,6 +61,7 @@ typedef struct Declaration {
   char *name;
   Datatype_T *dt;
   struct Declaration *next;
+  size_t local_index;
 } Declaration_T;
 
 typedef struct FunctionDescriptor {
@@ -132,6 +133,7 @@ typedef struct NodeFunction {
   Declaration_T *args;
   NodeExpression_T *special_ret;
   Datatype_T *rettype;
+  size_t stack_space;
 } NodeFunction_T;
 
 typedef struct ASTNode {

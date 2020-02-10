@@ -201,6 +201,8 @@ static Declaration_T *empty_decl() {
   assert(decl);
   decl->name = NULL;
   decl->dt = NULL;
+  decl->next = NULL;
+  decl->local_index = 0;
   return decl;
 }
 
@@ -980,6 +982,7 @@ static bool should_parse_declaration(ParseState_T *P) {
   }
   return on_type(P, TOKEN_IDENTIFIER, NULL) && next->oval == ':';
 }
+
 static ParseState_T *init_parsestate(LexState_T *L) {
 
   ParseState_T *P = malloc(sizeof(ParseState_T));

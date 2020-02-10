@@ -1,8 +1,6 @@
 CC = gcc
 CF = -std=c11 -Wno-format -g -O2
-COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o
-VM_OBJ = build/gc.o build/spyre.o build/vmtest.o build/hash.o
-ASM_OBJ = build/asmtest.o build/asm.o build/lex.o build/hash.o
+COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o build/gen.o
 
 clean:
 	rm -Rf build/*.o
@@ -36,3 +34,6 @@ build/asm.o:
 
 build/memory.o:
 	$(CC) $(CF) -c src/memory.c -o build/memory.o
+
+build/gen.o:
+	$(CC) $(CF) -c src/gen.c -o build/gen.o
