@@ -1,0 +1,26 @@
+Vector2: struct {
+  x: float;
+  y: float;
+};
+
+func square(z: float) -> float = z*z;
+
+func test(x: int, y: int) -> int {
+
+  thing: float;
+
+  if (thing == x) {
+  
+    while (thing < 10) {
+      thing + 20;
+    }
+
+    while (thing + 10) {
+      thing + 20;
+    }
+  } 
+
+}
+
+
+

@@ -1,0 +1,29 @@
+RESL 2
+
+ALLOC Matrix
+SVL 0
+TAGL 0
+
+ALLOC Matrix
+SVL 1
+TAGL 1
+
+LDL 0
+ALLOC Vector2
+SVMBR 0
+
+LDL 0
+ALLOC Vector2
+SVMBR 1
+
+LDL 1
+LDL 0
+LDMBR 0
+SVMBR 0
+
+UNTAGL 0
+
+HALT
+
+Matrix: db "Matrix"
+Vector2: db "Vector2"
