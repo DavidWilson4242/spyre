@@ -140,26 +140,41 @@ static Datatype_T *clone_datatype(Datatype_T *dt) {
       dt->primsize, dt->is_const);
 }
 
+static Declaration_T *search_in_decl_list(Declaration_T *decl, const char *name) {
+  while (decl != NULL) {
+    if (!strcmp(decl->name, name)) {
+      return decl;
+    }
+    decl = decl->next;
+  }
+  return NULL;
+}
+
 /* propogate upwards in the syntax, starting at the nearest block, looking
  * for variables */
 static Declaration_T *decl_from_name(ParseState_T *P, const char *name) {
+  ASTNode_T *prev;
+  Declaration_T *search;
+  
+  /* SPECIAL CASE:
+   * used for short-return functions */
+  prev = P->backnode;
+  if (prev != NULL && prev->type == NODE_FUNCTION) {
+    search = search_in_decl_list(prev->nodefunc->args, name);
+    if (search != NULL) {
+      return search;
+    }
+  }
+
   for (ASTNode_T *b = P->block; b != NULL; b = b->parent) {
-    if (b->type != NODE_BLOCK) {
-      continue;
+    if (b->type == NODE_BLOCK) {
+      search = search_in_decl_list(b->nodeblock->vars, name);
     }
-    /* if a block directly follows a function, then that
-     * function's arguments are viable candidates */
-    if (b->prev != NULL && b->type == NODE_FUNCTION) {
-      for (Declaration_T *arg = b->nodefunc->args; arg != NULL; arg = arg->next) {
-        if (!strcmp(arg->name, name)) {
-          return arg;
-        }
-      }
+    if (search == NULL && b->prev != NULL && b->prev->type == NODE_FUNCTION) {
+      search = search_in_decl_list(b->prev->nodefunc->args, name);
     }
-    for (Declaration_T *decl = b->nodeblock->vars; decl != NULL; decl = decl->next) {
-      if (!strcmp(decl->name, name)) {
-        return decl;
-      }
+    if (search != NULL) {
+      return search;
     }
   }
   return NULL;
@@ -229,7 +244,7 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
 /* verifies that a node can be placed at the next spot.  for example,
  * only blocks and statements may follow an if-statement */
 static void verify_node(ParseState_T *P, ASTNode_T *node) {
-  if (!P->backnode) {
+  if (P->backnode == NULL) {
     return;
   }
   if (P->backnode->type == NODE_IF) {
@@ -252,11 +267,10 @@ static void append_node(ParseState_T *P, ASTNode_T *node) {
   if (P->backnode != NULL) {
     node->prev = P->backnode;
     P->backnode->next = node;
-    P->backnode = node;
   } else {
-    P->backnode = node;
     P->block->nodeblock->children = node;
   }
+  P->backnode = node;
   if (node->type == NODE_BLOCK) {
     P->block = node;
     P->backnode = NULL;
@@ -494,6 +508,13 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
       }
       indent(ind + 1);
       printf("}\n");
+      if (node->nodefunc->special_ret != NULL) {
+        indent(ind + 1);
+        printf("SPECIAL_RET: {\n");
+        expnode_print(node->nodefunc->special_ret, ind + 2);
+        indent(ind + 1);
+        printf("}\n");
+      }
       indent(ind);
       printf("}\n");
       break;
@@ -833,6 +854,8 @@ static bool should_parse_function(ParseState_T *P) {
   return on_string(P, "func", NULL);
 }
 
+/* syntax:
+ * func name(T: arg0, T: arg1, ...) -> T { ... } */
 static void parse_function(ParseState_T *P) {
   Declaration_T *arg = NULL, *backarg = NULL;
   ASTNode_T *func = empty_node(NODE_FUNCTION);
@@ -865,7 +888,19 @@ static void parse_function(ParseState_T *P) {
   eat(P, ")");
   eat(P, "->");
   fnode->rettype = parse_datatype(P);
+  
   append_node(P, func);
+
+  /* optionally, user may use the syntax
+   * func name(...) -> T = <retval expression>
+   * notice that we append the node before this case, so that
+   * its arguments can be referenced by the expression */
+  if (on_string(P, "=", NULL)) {
+    eat(P, "=");
+    mark_operator(P, SPECO_NULL, ';');
+    fnode->special_ret = parse_expression(P); 
+  }
+
 }
 
 static bool should_parse_struct(ParseState_T *P) {
@@ -920,6 +955,7 @@ static bool should_leave_block(ParseState_T *P) {
 
 static void leave_block(ParseState_T *P) {
   eat(P, "}");
+  P->backnode = P->block;
   P->block = P->block->parent;
   if (!P->block) {
     parse_err(P, "unexpected '}' closing a block that doesn't exist");

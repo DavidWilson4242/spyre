@@ -130,6 +130,7 @@ typedef struct NodeReturn {
 typedef struct NodeFunction {
   char *func_name;
   Declaration_T *args;
+  NodeExpression_T *special_ret;
   Datatype_T *rettype;
 } NodeFunction_T;
 
