@@ -123,15 +123,28 @@ typedef struct NodeBlock {
   Declaration_T *backvar;
 } NodeBlock_T;
 
+typedef struct NodeReturn {
+  NodeExpression_T *retval;
+} NodeReturn_T;
+
+typedef struct NodeFunction {
+  char *func_name;
+  Declaration_T *args;
+  Datatype_T *rettype;
+} NodeFunction_T;
+
 typedef struct ASTNode {
   ASTNodeType_T type;
   struct ASTNode *next;
+  struct ASTNode *prev;
   struct ASTNode *parent;
   union {
     NodeIf_T         *nodeif;
     NodeWhile_T      *nodewhile;
     NodeExpression_T *nodeexp;
     NodeBlock_T      *nodeblock;
+    NodeReturn_T     *noderet;
+    NodeFunction_T   *nodefunc;
   };
 } ASTNode_T;
 

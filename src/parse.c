@@ -147,6 +147,15 @@ static Declaration_T *decl_from_name(ParseState_T *P, const char *name) {
     if (b->type != NODE_BLOCK) {
       continue;
     }
+    /* if a block directly follows a function, then that
+     * function's arguments are viable candidates */
+    if (b->prev != NULL && b->type == NODE_FUNCTION) {
+      for (Declaration_T *arg = b->nodefunc->args; arg != NULL; arg = arg->next) {
+        if (!strcmp(arg->name, name)) {
+          return arg;
+        }
+      }
+    }
     for (Declaration_T *decl = b->nodeblock->vars; decl != NULL; decl = decl->next) {
       if (!strcmp(decl->name, name)) {
         return decl;
@@ -185,6 +194,7 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
   assert(node);
   node->type = type;
   node->next = NULL;
+  node->prev = NULL;
   node->parent = NULL;
   switch (type) {
     case NODE_IF:
@@ -201,7 +211,11 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
       break;
     case NODE_FOR:
     case NODE_FUNCTION:
+      node->nodefunc = calloc(1, sizeof(NodeFunction_T));
+      break;
     case NODE_RETURN:
+      node->noderet = calloc(1, sizeof(NodeReturn_T));
+      break;
     case NODE_CONTINUE:
     case NODE_INCLUDE:
     case NODE_DECLARATION:
@@ -233,8 +247,10 @@ static void verify_node(ParseState_T *P, ASTNode_T *node) {
 static void append_node(ParseState_T *P, ASTNode_T *node) {
   verify_node(P, node);
   node->next = NULL;
+  node->prev = NULL;
   node->parent = P->block;
-  if (P->backnode) {
+  if (P->backnode != NULL) {
+    node->prev = P->backnode;
     P->backnode->next = node;
     P->backnode = node;
   } else {
@@ -295,7 +311,7 @@ static bool on_string(ParseState_T *P, const char *id, LexToken_T *tok) {
   return !strcmp(t->as_string, id);
 }
 
-static bool is_tok_type(ParseState_T *P, LexTokenType_T type, LexToken_T *tok) {
+static bool on_type(ParseState_T *P, LexTokenType_T type, LexToken_T *tok) {
   LexToken_T *t = (tok != NULL) ? tok : P->tok;
   if (t == NULL) {
     return false;
@@ -442,6 +458,9 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
 }
 
 static void astnode_print(ASTNode_T *node, size_t ind) {
+  if (node == NULL) {
+    return;
+  }
   indent(ind);
   switch (node->type) {
     case NODE_IF:
@@ -461,6 +480,30 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
       expnode_print(node->nodewhile->cond, ind + 2);
       indent(ind + 1);
       printf("}\n");
+      indent(ind);
+      printf("}\n");
+      break;
+    case NODE_FUNCTION:
+      printf("FUNCTION: {\n");
+      indent(ind + 1);
+      printf("RETURNS: ");
+      print_datatype(node->nodefunc->rettype);
+      printf("\n");
+      indent(ind + 1);
+      printf("ARGS: {\n");
+      for (Declaration_T *arg = node->nodefunc->args; arg != NULL; arg = arg->next) {
+        indent(ind + 2);
+        print_datatype(arg->dt);
+        printf("\n");
+      }
+      indent(ind + 1);
+      printf("}\n");
+      indent(ind);
+      printf("}\n");
+      break;
+    case NODE_RETURN:
+      printf("RETURN: {\n");
+      expnode_print(node->noderet->retval, ind + 1);
       indent(ind);
       printf("}\n");
       break;
@@ -728,12 +771,14 @@ static void parse_expression_node(ParseState_T *P) {
 
 static Declaration_T *parse_declaration(ParseState_T *P) {
   Declaration_T *decl = empty_decl();
+  if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
+    parse_err(P, "expected identifier in declaration, got token '%s'\n", P->tok->as_string);
+  }
   decl->name = malloc(strlen(P->tok->sval) + 1);
   strcpy(decl->name, P->tok->sval);
   safe_eat(P);
   eat(P, ":");
   decl->dt = parse_datatype(P);
-  eat(P, ";");
   return decl;
 }
 
@@ -754,6 +799,23 @@ static void parse_if(ParseState_T *P) {
   append_node(P, node);
 }
 
+static bool should_parse_return(ParseState_T *P) {
+  return on_string(P, "return", NULL);
+}
+
+static void parse_return(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_RETURN);
+  eat(P, "return");
+  if (on_string(P, ";", NULL)) {
+    node->noderet->retval = NULL;
+    safe_eat(P);
+  } else {
+    mark_operator(P, SPECO_NULL, ';');
+    node->noderet->retval = parse_expression(P);
+  }
+  append_node(P, node);
+}
+
 static bool should_parse_while(ParseState_T *P) {
   return on_string(P, "while", NULL);
 }
@@ -771,8 +833,47 @@ static void parse_while(ParseState_T *P) {
   append_node(P, node);
 }
 
+static bool should_parse_function(ParseState_T *P) {
+  return on_string(P, "func", NULL);
+}
+
+static void parse_function(ParseState_T *P) {
+  Declaration_T *arg = NULL, *backarg = NULL;
+  ASTNode_T *func = empty_node(NODE_FUNCTION);
+  NodeFunction_T *fnode = func->nodefunc;
+  eat(P, "func");
+  if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
+    parse_err(P, "expected identifier to follow token 'func'");
+  }
+  fnode->func_name = malloc(strlen(P->tok->as_string) + 1);
+  assert(fnode->func_name);
+  strcpy(fnode->func_name, P->tok->as_string);
+  safe_eat(P);
+  eat(P, "(");
+  while (!on_string(P, ")", NULL)) {
+    arg = parse_declaration(P);
+    if (backarg != NULL) {
+      backarg->next = arg;
+    } else {
+      fnode->args = arg;
+    }
+    if (!on_string(P, ")", NULL) && !on_string(P, ",", NULL)) {
+      parse_err(P, "expected ')' or ',' to follow function argument.  Got token '%s'",
+                   P->tok->as_string);
+    }
+    if (on_string(P, ",", NULL)) {
+      safe_eat(P);
+    }
+    backarg = arg;
+  }
+  eat(P, ")");
+  eat(P, "->");
+  fnode->rettype = parse_datatype(P);
+  append_node(P, func);
+}
+
 static bool should_parse_struct(ParseState_T *P) {
-  return is_tok_type(P, TOKEN_IDENTIFIER, NULL)
+  return on_type(P, TOKEN_IDENTIFIER, NULL)
          && on_string(P, ":", peek(P, 1))
          && on_string(P, "struct", peek(P, 2));
 }
@@ -785,7 +886,7 @@ static void parse_struct(ParseState_T *P) {
   
   /* ensure no duplicates */
   if (hash_get(P->usertypes, P->tok->sval)) {
-    parse_err(P, "redeclaration of type '%s'\n", P->tok->sval);
+    parse_err(P, "redeclaration of type '%s'", P->tok->sval);
   }
 
   dt = make_empty_datatype(P->tok->sval);
@@ -804,8 +905,9 @@ static void parse_struct(ParseState_T *P) {
    * duplicate entries */
   while (!on_string(P, "}", NULL)) {
     member = parse_declaration(P); 
+    eat(P, ";");
     if (hash_get(dt->sdesc->members, member->dt->type_name) != NULL) {
-      parse_err(P, "duplicate member '%s' in struct '%s'\n", member->dt->type_name);
+      parse_err(P, "duplicate member '%s' in struct '%s'", member->dt->type_name);
     }
     hash_insert(dt->sdesc->members, member->name, member);
   }
@@ -844,7 +946,7 @@ static bool should_parse_declaration(ParseState_T *P) {
   if (!next || next->type != TOKEN_OPERATOR) {
     return false;
   }
-  return is_tok_type(P, TOKEN_IDENTIFIER, NULL) && next->oval == ':';
+  return on_type(P, TOKEN_IDENTIFIER, NULL) && next->oval == ':';
 }
 static ParseState_T *init_parsestate(LexState_T *L) {
 
@@ -883,6 +985,10 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_if(P);
     } else if (should_parse_while(P)) {
       parse_while(P);
+    } else if (should_parse_return(P)) { 
+      parse_return(P);
+    } else if (should_parse_function(P)) {
+      parse_function(P);
     } else if (should_parse_block(P)) {
       parse_block(P);
     } else if (should_leave_block(P)) {
@@ -891,6 +997,7 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_struct(P);
     } else if (should_parse_declaration(P)) {
       add_variable_to_block(P, parse_declaration(P));
+      eat(P, ";");
     } else {
       parse_expression_node(P);
     }
