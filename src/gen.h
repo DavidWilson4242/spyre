@@ -11,4 +11,5 @@ typedef struct GenerateState {
 } GenerateState_T;
 
 void generate_bytecode(ParseState_T *P, char *);
+
 #endif

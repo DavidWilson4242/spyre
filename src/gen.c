@@ -3,8 +3,15 @@
 #include <assert.h>
 #include "gen.h"
 
+/* syntax generation */
 static void generate_function(GenerateState_T *, ASTNode_T **);
 static void generate_block(GenerateState_T *, ASTNode_T **);
+static void generate_if(GenerateState_T *, ASTNode_T **);
+
+/* expression generation */
+static void generate_expression(GenerateState_T *G, NodeExpression_T *);
+static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *);
+static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *);
 
 /* helper function for determine_local_indices.  recursively determines the local index
  * of function arguments, as well as local variables inside of blocks. 
@@ -72,6 +79,43 @@ static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
   write_s(G, "ret\n");
 }
 
+static void generate_if(GenerateState_T *G, ASTNode_T **ifp) {
+  ASTNode_T *ifnode = *ifp;
+}
+
+/* assumes exp is of type EXP_UNARY */
+static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *exp) {
+  generate_expression(G, exp->operand);
+}
+
+/* assumes exp is of type EXP_BINARY */
+static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) {
+  generate_expression(G, exp->left_operand);
+  generate_expression(G, exp->right_operand);
+  switch (exp->optype) {
+    case '+':
+      write_s(G, "IADD\n");
+      break;
+    default:
+      break;
+  }
+}
+
+static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
+  
+  switch (exp->type) {
+    case EXP_UNARY:
+      generate_unary_expression(G, exp->unop);
+      break;
+    case EXP_BINARY:
+      generate_binary_expression(G, exp->binop); 
+      break;
+    default:
+      break;
+  }
+
+}
+
 static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
 
   ASTNode_T *block = *blockp;
@@ -83,6 +127,9 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
         break;
       case NODE_BLOCK:
         generate_block(G, &c);
+        break;
+      case NODE_IF:
+        generate_if(G, &c);
         break;
       default:
         break;
