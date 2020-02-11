@@ -3,6 +3,9 @@
 #include <assert.h>
 #include "gen.h"
 
+static void generate_function(GenerateState_T *, ASTNode_T **);
+static void generate_block(GenerateState_T *, ASTNode_T **);
+
 /* helper function for determine_local_indices.  recursively determines the local index
  * of function arguments, as well as local variables inside of blocks. 
  * returns the total number of stack space needed for a give node.  for example, when
@@ -50,14 +53,64 @@ static void determine_local_indices(GenerateState_T *G) {
   }
 }
 
-GenerateState_T *gen_init(ParseState_T *P) {
+static void write_s(GenerateState_T *G, const char *s) {
+  fprintf(G->outfile, "%s", s);
+}
+
+static void write_int(GenerateState_T *G, size_t n) {
+  fprintf(G->outfile, "%zu", n);
+}
+
+static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
+  ASTNode_T *func = *funcp;
+  ASTNode_T **next = &func->next;
+  write_s(G, func->nodefunc->func_name); 
+  write_s(G, ":\nRESL ");
+  write_int(G, func->nodefunc->stack_space);
+  write_s(G, "\n");
+  generate_block(G, next);
+  write_s(G, "ret\n");
+}
+
+static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
+
+  ASTNode_T *block = *blockp;
+
+  for (ASTNode_T *c = block->nodeblock->children; c != NULL; c = c->next) {
+    switch (c->type) {
+      case NODE_FUNCTION:
+        generate_function(G, &c);
+        break;
+      case NODE_BLOCK:
+        generate_block(G, &c);
+        break;
+      default:
+        break;
+    }
+
+    if (c == NULL) {
+      break;
+    }
+  }
+}
+
+GenerateState_T *gen_init(ParseState_T *P, char *outfile) {
   GenerateState_T *G = malloc(sizeof(GenerateState_T));
   assert(G);
   G->P = P;
+  G->at = P->root;
+  G->outfile = fopen(outfile, "wb");
+  if (G->outfile == NULL) {
+    fprintf(stderr, "couldn't open '%s' for reading.\n", outfile);
+    exit(EXIT_FAILURE);
+  }
   return G;
 }
 
-void generate_bytecode(ParseState_T *P) {
-  GenerateState_T *G = gen_init(P);
+void generate_bytecode(ParseState_T *P, char *outfile) {
+  GenerateState_T *G = gen_init(P, outfile);
   determine_local_indices(G);
+  
+  G->at = G->P->root;
+  generate_block(G, &G->P->root);
 }

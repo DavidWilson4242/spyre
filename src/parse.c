@@ -261,6 +261,19 @@ static void verify_node(ParseState_T *P, ASTNode_T *node) {
   }
 }
 
+static bool is_in_func(ParseState_T *P) {
+  ASTNode_T *start = P->backnode != NULL ? P->backnode->parent : P->block->parent;
+  while (start != NULL && start != P->root) {
+    if (start->type == NODE_BLOCK && start->prev != NULL) {
+      if (start->prev->type == NODE_FUNCTION) {
+        return true;
+      }
+    }
+    start = start->parent;
+  }
+  return false;
+}
+
 static void append_node(ParseState_T *P, ASTNode_T *node) {
   verify_node(P, node);
   node->next = NULL;
@@ -859,6 +872,11 @@ static bool should_parse_function(ParseState_T *P) {
 /* syntax:
  * func name(T: arg0, T: arg1, ...) -> T { ... } */
 static void parse_function(ParseState_T *P) {
+
+  if (is_in_func(P)) {
+    parse_err(P, "functions within functions are not permitted");
+  }
+
   Declaration_T *arg = NULL, *backarg = NULL;
   ASTNode_T *func = empty_node(NODE_FUNCTION);
   NodeFunction_T *fnode = func->nodefunc;

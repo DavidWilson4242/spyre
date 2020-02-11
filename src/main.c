@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     }
   }
 
-	if (compile_mode == COMP_ASSEMBLE && outfile == NULL) {
+	if ((compile_mode == COMP_ASSEMBLE || compile_mode == COMP_FULL) && outfile == NULL) {
 		fprintf(stderr, "expected an output file\n");
 		exit(EXIT_FAILURE);
 	}
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
 			L = lex_file(infile);
 			P = parse_file(L);
       //spyre_execute_with_context(NULL, P);
-      generate_bytecode(P);
+      generate_bytecode(P, outfile);
 			lex_cleanup(&L);
 			parse_cleanup(&P);
 			break;

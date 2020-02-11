@@ -6,8 +6,9 @@
 
 typedef struct GenerateState {
   ParseState_T *P;
+  ASTNode_T *at;
+  FILE *outfile;
 } GenerateState_T;
 
-void generate_bytecode(ParseState_T *P);
-
+void generate_bytecode(ParseState_T *P, char *);
 #endif
