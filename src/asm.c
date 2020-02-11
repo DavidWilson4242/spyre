@@ -16,26 +16,40 @@ static const struct {
   size_t opcode;
   size_t operands;
 } instructions[] = {
-  {"HALT",   0x00, 0},
-  {"IPUSH",  0x01, 1},
-  {"IPOP",   0x02, 0},
-  {"IADD",   0x03, 0},
-  {"ISUB",   0x04, 0},
-  {"IMUL",   0x05, 0},
-  {"IDIV",   0x06, 0},
-  {"LDL",    0x80, 1},
-  {"SVL",    0x81, 1},
-  {"DER",    0x82, 0},
-  {"RESL",   0x83, 1},
-  {"LDMBR",  0x84, 1},
-  {"SVMBR",  0x85, 1},
-  {"IPRINT", 0x90, 0},
-  {"FPRINT", 0x91, 0},
-  {"PPRINT", 0x92, 0},
-  {"ALLOC",  0xA0, 1},
-  {"FREE",   0xA1, 0},
-  {"TAGL",   0xA2, 1},
-  {"UNTAGL", 0xA3, 1},
+  {"HALT",    0x00, 0},
+  {"IPUSH",   0x01, 1},
+  {"IPOP",    0x02, 0},
+  {"IADD",    0x03, 0},
+  {"ISUB",    0x04, 0},
+  {"IMUL",    0x05, 0},
+  {"IDIV",    0x06, 0},
+  {"LDL",     0x80, 1},
+  {"SVL",     0x81, 1},
+  {"DER",     0x82, 0},
+  {"RESL",    0x83, 1},
+  {"LDMBR",   0x84, 1},
+  {"SVMBR",   0x85, 1},
+  {"IPRINT",  0x90, 0},
+  {"FPRINT",  0x91, 0},
+  {"PPRINT",  0x92, 0},
+  {"ALLOC",   0xA0, 1},
+  {"FREE",    0xA1, 0},
+  {"TAGL",    0xA2, 1},
+  {"UNTAGL",  0xA3, 1},
+  {"UNTAGLS", 0xA4, 1},
+  {"ITEST",   0xC0, 0},
+  {"ICMP",    0xC1, 0},
+  {"FCMP",    0xC2, 0},
+  {"FTEST",   0xC3, 0},
+  {"JMP",     0xC4, 1},
+  {"JZ",      0xC5, 1},
+  {"JNZ",     0xC6, 1},
+  {"JGT",     0xC7, 1},
+  {"JGE",     0xC8, 1},
+  {"JLT",     0xC9, 1},
+  {"JLE",     0xCA, 1},
+  {"JEQ",     0xCB, 1},
+  {"JNEQ",    0xCC, 1}
 };
 
 static void advance(AssembleState_T *A, size_t n) {
@@ -181,7 +195,7 @@ static void read_instruction(AssembleState_T *A) {
             }
             break;
           default:
-            fprintf(stderr, "invalid operand\n");
+            fprintf(stderr, "invalid operand '%s'\n", A->at->as_string);
             exit(EXIT_FAILURE);
         }
         advance(A, 1);

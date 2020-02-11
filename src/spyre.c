@@ -144,6 +144,7 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
 
   /* variables for instructions */
   int64_t v0, v1, v2;
+  double f0, f1, f2;
   uint8_t *rawbuf;
   const char *typename;
   MemoryDescriptor_T mdesc;
@@ -156,6 +157,8 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
       case INS_HALT:
         running = false;
         break;
+
+      /* arithmetic */
       case INS_IPUSH:
         v0 = read_i64(S);
         spyre_push_int(S, v0);
@@ -183,9 +186,17 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         v0 = spyre_pop_int(S);
         spyre_push_int(S, v0 / v1);
         break;
+      
+      /* debug */
       case INS_IPRINT:
         printf("%lld\n", spyre_pop_int(S));
         break;
+      case INS_FPRINT:
+        break;
+      case INS_PPRINT:
+        break;
+
+      /* memory management and GC */
       case INS_ALLOC:
         v0 = read_u64(S);	
         mdesc.type_name = (char *)&S->code[v0];
@@ -195,6 +206,22 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         v1 = spymem_alloc(S, &mdesc);
         spyre_push_ptr(S, v1);
         break;
+      case INS_FREE:
+        break;
+      case INS_TAGL:
+        v0 = read_u64(S);
+        spygc_track_local(S, v0);
+        break;
+      case INS_UNTAGL:
+        v0 = read_u64(S);
+        spygc_untrack_local(S, v0);
+        break;
+      case INS_UNTAGLS:
+        v0 = read_u64(S);
+        spygc_untrack_locals(S, v0);
+        break;
+
+      /* local management */
       case INS_LDL:
         v0 = read_u64(S);
         spyre_push_ptr(S, *(size_t *)&S->stack[S->bp + v0*sizeof(uint64_t)]);
@@ -221,19 +248,74 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         rawbuf = spymem_rawbuf(S, v2);
         *(uint64_t *)&rawbuf[v0 * sizeof(uint64_t)] = v1;
         break;
-      case INS_FREE:
+
+      /* branching */
+      case INS_ITEST:
+        v0 = spyre_pop_int(S);
+        S->fz = (v0 == 0);
         break;
-      case INS_TAGL:
-        v0 = read_u64(S);
-        spygc_track_local(S, v0);
+      case INS_ICMP:
+        v0 = spyre_pop_int(S);
+        v1 = spyre_pop_int(S);
+        S->feq = (v0 == v1);
+        S->fgt = (v0 > v1);
+        S->fge = (v0 >= v1);
         break;
-      case INS_UNTAGL:
-        v0 = read_u64(S);
-        spygc_untrack_local(S, v0);
+      case INS_FTEST:
         break;
-      case INS_UNTAGLS:
+      case INS_FCMP:
+        break;
+      case INS_JMP:
         v0 = read_u64(S);
-        spygc_untrack_locals(S, v0);
+        S->ip = v0;
+        break;
+      case INS_JZ:
+        v0 = read_u64(S);
+        if (S->fz) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JNZ:
+        v0 = read_u64(S);
+        if (!S->fz) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JGT:
+        v0 = read_u64(S);
+        if (S->fgt) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JGE:
+        v0 = read_u64(S);
+        if (S->fge) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JLT:
+        v0 = read_u64(S);
+        if (!S->fge) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JLE:
+        v0 = read_u64(S);
+        if (!S->fgt) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JEQ:
+        v0 = read_u64(S);
+        if (S->feq) {
+          S->ip = v0;
+        }
+        break;
+      case INS_JNEQ:
+        v0 = read_u64(S);
+        if (!S->feq) {
+          S->ip = v0;
+        }
         break;
       default:
         break;

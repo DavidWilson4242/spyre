@@ -1,9 +1,7 @@
-func test(x: int, y: int) -> int {
+func main(x: int, y: int) -> int {
+
+  if (10 + 20 + 30) {
+    50;
+  }
 
 }
-
-func inner(z: int, q: int) -> int {
-
-
-}
-

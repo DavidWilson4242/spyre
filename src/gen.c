@@ -69,6 +69,14 @@ static void write_int(GenerateState_T *G, size_t n) {
   fprintf(G->outfile, "%zu", n);
 }
 
+static void write_label(GenerateState_T *G, size_t label_index) {
+  fprintf(G->outfile, "__L%zu:", label_index);
+}
+
+static void write_label_ref(GenerateState_T *G, size_t label_index) {
+  fprintf(G->outfile, "__L%zu", label_index);
+}
+
 static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
   ASTNode_T *func = *funcp;
   ASTNode_T **next = &func->next;
@@ -77,11 +85,24 @@ static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
   write_int(G, func->nodefunc->stack_space);
   write_s(G, "\n");
   generate_block(G, next);
-  write_s(G, "ret\n");
+  write_s(G, "RET\n");
+  *funcp = (*funcp)->next;
 }
 
 static void generate_if(GenerateState_T *G, ASTNode_T **ifp) {
+  size_t poslbl = G->lcount++;
+  size_t neglbl = G->lcount++;
   ASTNode_T *ifnode = *ifp;
+  ASTNode_T **next = &ifnode->next;
+  generate_expression(G, ifnode->nodeif->cond);
+  write_s(G, "ITEST\n");
+  write_s(G, "JZ ");
+  write_label_ref(G, neglbl);
+  write_s(G, "\n");
+  generate_block(G, next);
+  write_label(G, neglbl);
+  write_s(G, "\n");
+  *ifp = (*ifp)->next;
 }
 
 static void generate_integer_expression(GenerateState_T *G, int64_t value) {
@@ -102,6 +123,15 @@ static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) 
   switch (exp->optype) {
     case '+':
       write_s(G, "IADD\n");
+      break;
+    case '-':
+      write_s(G, "ISUB\n");
+      break;
+    case '*':
+      write_s(G, "IMUL\n");
+      break;
+    case '/':
+      write_s(G, "IDIV\n");
       break;
     default:
       break;
@@ -141,7 +171,7 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
       case NODE_IF:
         generate_if(G, &c);
         break;
-      case NODE_STATEMENT:
+      case NODE_EXPRESSION:
         generate_expression(G, c->nodeexp);
         break;
       default:
@@ -159,6 +189,7 @@ GenerateState_T *gen_init(ParseState_T *P, char *outfile) {
   assert(G);
   G->P = P;
   G->at = P->root;
+  G->lcount = 0;
   G->outfile = fopen(outfile, "wb");
   if (G->outfile == NULL) {
     fprintf(stderr, "couldn't open '%s' for reading.\n", outfile);
@@ -171,6 +202,9 @@ void generate_bytecode(ParseState_T *P, char *outfile) {
   GenerateState_T *G = gen_init(P, outfile);
   determine_local_indices(G);
   
-  G->at = G->P->root;
+  write_s(G, "JMP __ENTRY__\n");
   generate_block(G, &G->P->root);
+  write_s(G, "__ENTRY__:\n");
+  write_s(G, "CALL main\n");
+  write_s(G, "HALT\n");
 }

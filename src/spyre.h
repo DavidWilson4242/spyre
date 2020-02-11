@@ -39,6 +39,21 @@
 #define INS_UNTAGL  0xA3
 #define INS_UNTAGLS 0xA4
 
+/* branching */
+#define INS_ITEST   0xC0
+#define INS_ICMP    0xC1
+#define INS_FTEST   0xC2
+#define INS_FCMP    0xC3
+#define INS_JMP     0xC4
+#define INS_JZ      0xC5
+#define INS_JNZ     0xC6
+#define INS_JGT     0xC7
+#define INS_JGE     0xC8
+#define INS_JLT     0xC9
+#define INS_JLE     0xCA
+#define INS_JEQ     0xCB
+#define INS_JNEQ    0xCC
+
 /* at the head of every segment allocation */
 typedef struct MemoryDescriptor {
   char *type_name;
@@ -86,6 +101,12 @@ typedef struct SpyreState {
   size_t sp;
   size_t bp;
   size_t ip;
+
+  /* flags */
+  uint8_t fz;
+  uint8_t feq;
+  uint8_t fgt;
+  uint8_t fge;
 } SpyreState_T;
 
 SpyreState_T *spyre_init();

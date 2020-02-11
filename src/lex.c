@@ -530,16 +530,20 @@ LexState_T *lex_file(const char *filename) {
       read_character_literal(L);
     }
 
-    /* check for operator */
-    else if (ispunct(at(L))) {
-      read_operator(L);
-    }
-
     /* check for identifier */
     else if (isalpha(at(L)) || at(L) == '_') {
       read_identifier(L);
     }
 
+    /* check for operator */
+    else if (ispunct(at(L))) {
+      read_operator(L);
+    }
+
+  }
+  
+  for (LexToken_T *t = L->tokens; t != NULL; t = t->next) {
+    print_token(t);
   }
 
   return L;
