@@ -12,6 +12,7 @@ static void generate_if(GenerateState_T *, ASTNode_T **);
 static void generate_expression(GenerateState_T *G, NodeExpression_T *);
 static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *);
 static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *);
+static void generate_integer_expression(GenerateState_T *G, int64_t); 
 
 /* helper function for determine_local_indices.  recursively determines the local index
  * of function arguments, as well as local variables inside of blocks. 
@@ -83,6 +84,12 @@ static void generate_if(GenerateState_T *G, ASTNode_T **ifp) {
   ASTNode_T *ifnode = *ifp;
 }
 
+static void generate_integer_expression(GenerateState_T *G, int64_t value) {
+  write_s(G, "IPUSH ");
+  write_int(G, value);
+  write_s(G, "\n");
+}
+
 /* assumes exp is of type EXP_UNARY */
 static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *exp) {
   generate_expression(G, exp->operand);
@@ -110,6 +117,9 @@ static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
     case EXP_BINARY:
       generate_binary_expression(G, exp->binop); 
       break;
+    case EXP_INTEGER:
+      generate_integer_expression(G, exp->ival);
+      break;
     default:
       break;
   }
@@ -130,6 +140,9 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
         break;
       case NODE_IF:
         generate_if(G, &c);
+        break;
+      case NODE_STATEMENT:
+        generate_expression(G, c->nodeexp);
         break;
       default:
         break;
