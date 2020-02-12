@@ -302,6 +302,14 @@ void typecheck_if(ParseState_T *P, ASTNode_T *node) {
   }
 }
 
+void typecheck_while(ParseState_T *P, ASTNode_T *node) {
+  typecheck_expression(P, node->nodewhile->cond);
+  if (!compare_datatypes_strict(node->nodewhile->cond->resolved, P->builtin->bool_t)) {
+    typecheck_exp_err(node->nodewhile->cond, "while-condition must evaluate to type 'bool' (got type '%s')", 
+                      node->nodewhile->cond->resolved->type_name);
+  }
+}
+
 void typecheck_node(ParseState_T *P, ASTNode_T *node) {
   switch (node->type) {
     case NODE_BLOCK:
@@ -314,7 +322,7 @@ void typecheck_node(ParseState_T *P, ASTNode_T *node) {
       typecheck_if(P, node);
       break;
     case NODE_WHILE:
-      typecheck_expression(P, node->nodewhile->cond);
+      typecheck_while(P, node);
       break;
     default:
       break;
