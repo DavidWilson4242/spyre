@@ -512,7 +512,11 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
       printf("FUNCTION: {\n");
       indent(ind + 1);
       printf("RETURNS: ");
-      print_datatype(node->nodefunc->rettype);
+			if (node->nodefunc->rettype != NULL) {
+				print_datatype(node->nodefunc->rettype);
+			} else {
+				printf("void\n");
+			}
       printf("\n");
       indent(ind + 1);
       printf("ARGS: {\n");
@@ -571,11 +575,12 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
   }
 }
 
-static NodeExpression_T *empty_expnode(NodeExpressionType_T type) {
+static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno) {
   NodeExpression_T *node = malloc(sizeof(NodeExpression_T));
   assert(node);
   node->parent = NULL;
   node->type = type;
+	node->lineno = lineno;
   switch (type) {
     case EXP_INTEGER:
       node->ival = 0;
@@ -620,21 +625,18 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
     LexToken_T *t = P->tok;
     switch (t->type) {
       case TOKEN_INTEGER:
-        node = empty_expnode(EXP_INTEGER);
+        node = empty_expnode(EXP_INTEGER, t->lineno);
         node->ival = t->ival;
         expstack_push(&postfix, node);
         break;
       case TOKEN_FLOAT:
-        node = empty_expnode(EXP_FLOAT);
+        node = empty_expnode(EXP_FLOAT, t->lineno);
         node->fval = t->fval;
         expstack_push(&postfix, node);
         break;
       case TOKEN_IDENTIFIER:
-        node = empty_expnode(EXP_VARIABLE);
+        node = empty_expnode(EXP_VARIABLE, t->lineno);
         node->decl = decl_from_name(P, P->tok->sval);
-        if (!node->decl) {
-          parse_err(P, "unknown variable '%s'", P->tok->sval);
-        }
         expstack_push(&postfix, node);
         break;
       case TOKEN_OPERATOR:
@@ -642,15 +644,15 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
           opinfo = &prec_table[t->oval];
           shunting_pops(&postfix, &operators, opinfo);
           if (opinfo->optype) {
-            node = empty_expnode(EXP_BINARY);
+            node = empty_expnode(EXP_BINARY, t->lineno);
             node->binop->optype = t->oval;
           } else {
-            node = empty_expnode(EXP_UNARY);
+            node = empty_expnode(EXP_UNARY, t->lineno);
             node->unop->optype = t->oval;
           }
           expstack_push(&operators, node);
         } else if (t->oval == '(') {
-          node = empty_expnode(EXP_UNARY);
+          node = empty_expnode(EXP_UNARY, t->lineno);
           node->unop->optype = '(';
           expstack_push(&operators, node);
         } else if (t->oval == ')') {
@@ -907,7 +909,15 @@ static void parse_function(ParseState_T *P) {
   }
   eat(P, ")");
   eat(P, "->");
-  fnode->rettype = parse_datatype(P);
+
+	/* special case for functions... may mark return type as void.  void will
+	 * only ever be used in this specific context */
+	if (on_string(P, "void", NULL)) {
+		fnode->rettype = NULL;
+		safe_eat(P);
+	} else {
+		fnode->rettype = parse_datatype(P);
+	}
   
   append_node(P, func);
 

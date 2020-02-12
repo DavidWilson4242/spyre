@@ -70,6 +70,26 @@ void hash_foreach(SpyreHash_T *table,
   }   
 }
 
+/* does NOT free the values inside of the table.  the user is expected to
+ * destroy the values before freeing the table */
+void hash_free(SpyreHash_T **tablep) {
+	SpyreHash_T *table = *tablep;
+	SpyreEntry_T *entry, *next;
+	for (size_t i = 0; i < table->capacity; i++) {
+		if (table->buckets[i] != NULL) {
+			entry = table->buckets[i];	
+			while (entry != NULL) {
+				next = entry->next;
+				free(entry->key);
+				free(entry);
+				entry = next;
+			}
+		}
+	}
+	free(table);
+	*tablep = NULL;
+}
+
 SpyreHash_T *hash_init() {
   
   SpyreHash_T *table = malloc(sizeof(SpyreHash_T));

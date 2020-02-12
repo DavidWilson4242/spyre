@@ -1,7 +1,15 @@
-func main(x: int, y: int) -> int {
+Vector2: struct {
+	x: float;
+	y: float;
+}
 
-  if (10 + 20 + 30) {
-    50;
-  }
+func testing(x: int, y: int) -> void {
+	if (10 == 10) {
+		20;
+	}
+}
 
+func main() -> void {
+	v: Vector2;
+	v.x;
 }

@@ -6,6 +6,7 @@
 #include "spyre.h"
 #include "parse.h"
 #include "gen.h"
+#include "typecheck.h"
 
 typedef enum CompileMode {
   COMP_NONE = 0,
@@ -85,6 +86,7 @@ int main(int argc, char **argv) {
 			L = lex_file(infile);
 			P = parse_file(L);
       //spyre_execute_with_context(NULL, P);
+			typecheck_syntax_tree(P);
       generate_bytecode(P, outfile);
 			lex_cleanup(&L);
 			parse_cleanup(&P);

@@ -92,6 +92,8 @@ typedef struct UnaryOpNode {
 } UnaryOpNode_T;
 
 typedef struct NodeExpression {
+	size_t lineno;
+	Datatype_T *resolved; /* assigned in typechecker */
   NodeExpressionType_T type;
   struct NodeExpression *parent;
   LeafSide_T leaf;
