@@ -26,6 +26,7 @@ typedef enum NodeExpressionType {
   EXP_UNARY,
   EXP_BINARY,
   EXP_INTEGER,
+  EXP_INDEX,
   EXP_FLOAT,
 	EXP_IDENTIFIER
 } NodeExpressionType_T;
@@ -93,6 +94,11 @@ typedef struct UnaryOpNode {
   uint8_t optype;
 } UnaryOpNode_T;
 
+typedef struct IndexNode {
+  struct NodeExpression *index;
+  struct NodeExpression *array;
+} IndexNode_T;
+
 typedef struct NodeExpression {
 	size_t lineno;
 	Datatype_T *resolved; /* assigned in typechecker */
@@ -106,6 +112,7 @@ typedef struct NodeExpression {
 		char *identval;
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
+    IndexNode_T *inop;
   };
 } NodeExpression_T;
 

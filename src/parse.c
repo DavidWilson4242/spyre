@@ -21,6 +21,9 @@
 #define BOOLTYPE_SIZE 8
 #define CHARTYPE_SIZE 1
 
+/* forward decls */
+static void mark_operator(ParseState_T *, uint8_t, uint8_t);
+
 typedef struct OperatorDescriptor {
   unsigned prec;
   enum {
@@ -437,6 +440,11 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
       printf("%c|%d\n", node->unop->optype, node->unop->optype);
       expnode_print(node->unop->operand, ind + 1);
       break;
+    case EXP_INDEX:
+      printf("IDX\n");
+      expnode_print(node->inop->array, ind + 1);
+      expnode_print(node->inop->index, ind + 1);
+      break;
     default:
       break;
   }
@@ -560,6 +568,12 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
       assert(node->unop);
       node->unop->operand = NULL;
       break;
+    case EXP_INDEX:
+      node->inop = malloc(sizeof(IndexNode_T));
+      assert(node->inop);
+      node->inop->array = NULL;
+      node->inop->index = NULL;
+      break;
     default:
       break;
   }
@@ -576,6 +590,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
   ExpressionStack_T *tree      = NULL;
   NodeExpression_T *node;
   NodeExpression_T *top;
+  LexToken_T *oldmark;
   const OperatorDescriptor_T *opinfo;
 
   /* ===== PHASE ONE | SHUNTING YARD ===== */
@@ -584,6 +599,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
    * expression from infix notation to postix notation */
   while (P->tok != P->mark) {
     LexToken_T *t = P->tok;
+    printf("ON %s\n", t->as_string);
     switch (t->type) {
       case TOKEN_INTEGER:
         node = empty_expnode(EXP_INTEGER, t->lineno);
@@ -614,6 +630,22 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
             node->unop->optype = t->oval;
           }
           expstack_push(&operators, node);
+        } else if (t->oval == '[') {
+          /* parse array index? */
+          printf("A\n");
+          node = empty_expnode(EXP_INDEX, t->lineno);
+          oldmark = P->mark;
+          safe_eat(P);
+          mark_operator(P, '[', ']');
+          node->inop->index = parse_expression(P, NULL);
+          node->inop->array = NULL;
+          eat(P, "]");
+          printf("BACK AT %s\n", P->tok->as_string);
+          P->mark = oldmark;
+          opinfo = &prec_table[SPECO_INDEX];
+          shunting_pops(&postfix, &operators, opinfo);
+          expstack_push(&operators, node);
+          printf("b\n");
         } else if (t->oval == '(') {
           node = empty_expnode(EXP_UNARY, t->lineno);
           node->unop->optype = '(';
@@ -679,6 +711,9 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
       case EXP_FLOAT:
       case EXP_IDENTIFIER:
         expstack_push(&tree, node);
+        break;
+      case EXP_INDEX:
+        node->inop->array = expstack_pop(&tree);
         break;
       case EXP_UNARY:
         top = expstack_pop(&tree);
@@ -765,6 +800,11 @@ static Datatype_T *parse_datatype(ParseState_T *P) {
     parse_err(P, "unknown typename '%s'", P->tok->as_string);
   }
   safe_eat(P);
+  while (on_string(P, "[", NULL)) {
+    safe_eat(P);
+    eat(P, "]");
+    dt->arrdim++;
+  }
   return dt;
 }
 

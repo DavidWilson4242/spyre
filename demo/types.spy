@@ -9,16 +9,11 @@ Matrix: struct {
 }
 
 func main() -> void {
+  
+  x: int[][];
 
-  mat: Matrix;
-
-  mat.v0.x = 10;
-  mat.v0.y = 20;
-  mat.v1.x = 30;
-  mat.v1.y = 40;
-
-  while (mat.v0.x >= 0) {
-    mat.v0.x -= 1;
-  }
+  x[10];
 
 }
+
+

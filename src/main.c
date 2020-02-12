@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
   CompileMode_T compile_mode = COMP_NONE;
   char *infile = NULL;
 	char *outfile = NULL;
+      printf("A\n");
 
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-c")) {
