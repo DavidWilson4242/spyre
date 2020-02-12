@@ -632,20 +632,17 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           expstack_push(&operators, node);
         } else if (t->oval == '[') {
           /* parse array index? */
-          printf("A\n");
           node = empty_expnode(EXP_INDEX, t->lineno);
           oldmark = P->mark;
           safe_eat(P);
           mark_operator(P, '[', ']');
           node->inop->index = parse_expression(P, NULL);
           node->inop->array = NULL;
-          eat(P, "]");
-          printf("BACK AT %s\n", P->tok->as_string);
           P->mark = oldmark;
+          printf("BACK AT %s WITH MARK %s\n", P->tok->as_string, P->mark->as_string);
           opinfo = &prec_table[SPECO_INDEX];
           shunting_pops(&postfix, &operators, opinfo);
           expstack_push(&operators, node);
-          printf("b\n");
         } else if (t->oval == '(') {
           node = empty_expnode(EXP_UNARY, t->lineno);
           node->unop->optype = '(';
@@ -684,6 +681,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
     safe_eat(P);
   }
 
+
   /* empty remaining operator stack into postfix */
   while (expstack_top(&operators)) {
     NodeExpression_T *node = expstack_pop(&operators);
@@ -714,6 +712,11 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         break;
       case EXP_INDEX:
         node->inop->array = expstack_pop(&tree);
+        if (node->inop->array == NULL) {
+          parse_err(P, malformed_message);
+        }
+        node->inop->array->parent = node;
+        expstack_push(&tree, node);
         break;
       case EXP_UNARY:
         top = expstack_pop(&tree);
@@ -748,6 +751,9 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
   }
 
   NodeExpression_T *final_value = expstack_pop(&tree);
+  printf("survived\n");
+  expnode_print(final_value, 0);
+  printf("lol\n");
 
 	/* only root-level expnode gets a reference to the parent node */
 	final_value->nodeparent = nodeparent;
