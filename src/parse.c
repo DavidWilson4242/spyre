@@ -140,46 +140,6 @@ static Datatype_T *clone_datatype(Datatype_T *dt) {
       dt->primsize, dt->is_const);
 }
 
-static Declaration_T *search_in_decl_list(Declaration_T *decl, const char *name) {
-  while (decl != NULL) {
-    if (!strcmp(decl->name, name)) {
-      return decl;
-    }
-    decl = decl->next;
-  }
-  return NULL;
-}
-
-/* propogate upwards in the syntax, starting at the nearest block, looking
- * for variables */
-static Declaration_T *decl_from_name(ParseState_T *P, const char *name) {
-  ASTNode_T *prev;
-  Declaration_T *search;
-  
-  /* SPECIAL CASE:
-   * used for short-return functions */
-  prev = P->backnode;
-  if (prev != NULL && prev->type == NODE_FUNCTION) {
-    search = search_in_decl_list(prev->nodefunc->args, name);
-    if (search != NULL) {
-      return search;
-    }
-  }
-
-  for (ASTNode_T *b = P->block; b != NULL; b = b->parent) {
-    if (b->type == NODE_BLOCK) {
-      search = search_in_decl_list(b->nodeblock->vars, name);
-    }
-    if (search == NULL && b->prev != NULL && b->prev->type == NODE_FUNCTION) {
-      search = search_in_decl_list(b->prev->nodefunc->args, name);
-    }
-    if (search != NULL) {
-      return search;
-    }
-  }
-  return NULL;
-}
-
 /* TODO support for functions, structs */
 static void print_datatype(Datatype_T *dt) {
   printf("%s", dt->type_name);
@@ -465,8 +425,8 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
     case EXP_FLOAT:
       printf("%f\n", node->fval);
       break;
-    case EXP_VARIABLE:
-      printf("%s\n", node->decl->name);
+    case EXP_IDENTIFIER:
+      printf("%s\n", node->identval);
       break;
     case EXP_BINARY:
       printf("%c|%d\n", node->binop->optype, node->binop->optype);
@@ -579,6 +539,7 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
   NodeExpression_T *node = malloc(sizeof(NodeExpression_T));
   assert(node);
   node->parent = NULL;
+	node->nodeparent = NULL;
   node->type = type;
 	node->lineno = lineno;
   switch (type) {
@@ -608,7 +569,7 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
 /* expects a valid mark in P->mark.  then, gathers all tokens until
  * that mark and converts the expression into a postfix tree
  * representation */
-static NodeExpression_T *parse_expression(ParseState_T *P) {
+static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent) {
 
   ExpressionStack_T *operators = NULL;
   ExpressionStack_T *postfix   = NULL;
@@ -635,8 +596,10 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
         expstack_push(&postfix, node);
         break;
       case TOKEN_IDENTIFIER:
-        node = empty_expnode(EXP_VARIABLE, t->lineno);
-        node->decl = decl_from_name(P, P->tok->sval);
+        node = empty_expnode(EXP_IDENTIFIER, t->lineno);
+				node->identval = malloc(strlen(t->as_string) + 1);
+				assert(node->identval);
+				strcpy(node->identval, t->as_string);
         expstack_push(&postfix, node);
         break;
       case TOKEN_OPERATOR:
@@ -674,6 +637,18 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
       default:
         parse_err(P, "unexpected token '%s' when parsing expression", t->as_string);
     }
+
+    /* if it's a unary or binary operator, write as_string value */
+    if (node->type == EXP_UNARY) {
+      node->unop->as_string = malloc(strlen(t->as_string) + 1);
+      assert(node->unop->as_string);
+      strcpy(node->unop->as_string, t->as_string);
+    } else if (node->type == EXP_BINARY) {
+      node->binop->as_string = malloc(strlen(t->as_string) + 1);
+      assert(node->binop->as_string);
+      strcpy(node->binop->as_string, t->as_string);
+    }
+
     safe_eat(P);
   }
 
@@ -702,7 +677,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
     switch (node->type) {
       case EXP_INTEGER:
       case EXP_FLOAT:
-      case EXP_VARIABLE:
+      case EXP_IDENTIFIER:
         expstack_push(&tree, node);
         break;
       case EXP_UNARY:
@@ -738,6 +713,9 @@ static NodeExpression_T *parse_expression(ParseState_T *P) {
   }
 
   NodeExpression_T *final_value = expstack_pop(&tree);
+
+	/* only root-level expnode gets a reference to the parent node */
+	final_value->nodeparent = nodeparent;
 
   if (tree != NULL) {
     parse_err(P, "an expression may only have one result");
@@ -798,7 +776,7 @@ static void parse_expression_node(ParseState_T *P) {
   ASTNode_T *node = empty_node(NODE_EXPRESSION);
   free(node->nodeexp);
   mark_operator(P, SPECO_NULL, ';');
-  node->nodeexp = parse_expression(P);
+  node->nodeexp = parse_expression(P, node);
   append_node(P, node);
   eat(P, ";");
 }
@@ -828,7 +806,7 @@ static void parse_if(ParseState_T *P) {
   eat(P, "if");
   eat(P, "(");
   mark_operator(P, '(', ')');
-  node->nodeif->cond = parse_expression(P);
+  node->nodeif->cond = parse_expression(P, node);
   eat(P, ")");
   append_node(P, node);
 }
@@ -845,7 +823,7 @@ static void parse_return(ParseState_T *P) {
     safe_eat(P);
   } else {
     mark_operator(P, SPECO_NULL, ';');
-    node->noderet->retval = parse_expression(P);
+    node->noderet->retval = parse_expression(P, node);
   }
   append_node(P, node);
 }
@@ -862,7 +840,7 @@ static void parse_while(ParseState_T *P) {
   eat(P, "while");
   eat(P, "(");
   mark_operator(P, '(', ')');
-  node->nodewhile->cond = parse_expression(P);
+  node->nodewhile->cond = parse_expression(P, node);
   eat(P, ")");
   append_node(P, node);
 }
@@ -928,7 +906,7 @@ static void parse_function(ParseState_T *P) {
   if (on_string(P, "=", NULL)) {
     eat(P, "=");
     mark_operator(P, SPECO_NULL, ';');
-    fnode->special_ret = parse_expression(P); 
+    fnode->special_ret = parse_expression(P, func); 
   }
 
 }
@@ -1076,4 +1054,3 @@ ParseState_T *parse_file(LexState_T *L) {
 void parse_cleanup(ParseState_T **P) {
 
 }
-
