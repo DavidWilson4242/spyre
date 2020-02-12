@@ -399,6 +399,9 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
       case EXP_UNARY:
         top_desc = &prec_table[top->unop->optype];
         break;
+      case EXP_INDEX:
+        top_desc = &prec_table[SPECO_INDEX];
+        break;
       default:
         top_desc = NULL;
     }
@@ -599,7 +602,6 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
    * expression from infix notation to postix notation */
   while (P->tok != P->mark) {
     LexToken_T *t = P->tok;
-    printf("ON %s\n", t->as_string);
     switch (t->type) {
       case TOKEN_INTEGER:
         node = empty_expnode(EXP_INTEGER, t->lineno);
@@ -639,7 +641,6 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           node->inop->index = parse_expression(P, NULL);
           node->inop->array = NULL;
           P->mark = oldmark;
-          printf("BACK AT %s WITH MARK %s\n", P->tok->as_string, P->mark->as_string);
           opinfo = &prec_table[SPECO_INDEX];
           shunting_pops(&postfix, &operators, opinfo);
           expstack_push(&operators, node);
@@ -751,9 +752,6 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
   }
 
   NodeExpression_T *final_value = expstack_pop(&tree);
-  printf("survived\n");
-  expnode_print(final_value, 0);
-  printf("lol\n");
 
 	/* only root-level expnode gets a reference to the parent node */
 	final_value->nodeparent = nodeparent;
