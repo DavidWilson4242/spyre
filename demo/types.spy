@@ -3,13 +3,22 @@ Vector2: struct {
 	y: float;
 }
 
-func testing(x: int, y: int) -> void {
-	if (10 == 10) {
-		20;
-	}
+Matrix: struct {
+	v0: Vector2;
+	v1: Vector2;
 }
 
 func main() -> void {
-	v: Vector2;
-	v.x;
+
+  mat: Matrix;
+
+  mat.v0.x = 10.0;
+  mat.v0.y = 20.0;
+  mat.v1.x = 30.0;
+  mat.v1.y = 30.0;
+
+  if (mat.v0.x == 10.0 && mat.v0.y == 20.0) {
+
+  }
+
 }

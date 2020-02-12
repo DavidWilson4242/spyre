@@ -27,7 +27,7 @@ typedef enum NodeExpressionType {
   EXP_BINARY,
   EXP_INTEGER,
   EXP_FLOAT,
-  EXP_VARIABLE
+	EXP_IDENTIFIER
 } NodeExpressionType_T;
 
 typedef enum DatatypeType {
@@ -83,11 +83,13 @@ typedef struct BuiltinTypes {
 typedef struct BinaryOpNode {
   struct NodeExpression *left_operand;
   struct NodeExpression *right_operand;
+  char *as_string;
   uint8_t optype;
 } BinaryOpNode_T;
 
 typedef struct UnaryOpNode {
   struct NodeExpression *operand;
+  char *as_string;
   uint8_t optype;
 } UnaryOpNode_T;
 
@@ -96,13 +98,14 @@ typedef struct NodeExpression {
 	Datatype_T *resolved; /* assigned in typechecker */
   NodeExpressionType_T type;
   struct NodeExpression *parent;
+	struct ASTNode *nodeparent; /* each top-level expnode gets a pointer to parent node */
   LeafSide_T leaf;
   union {
     int64_t ival;
     double fval;
+		char *identval;
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
-    Declaration_T *decl;
   };
 } NodeExpression_T;
 
