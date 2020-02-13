@@ -127,10 +127,14 @@ static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigne
 static Datatype_T *make_empty_datatype(const char *type_name) {
   Datatype_T *dt = calloc(1, sizeof(Datatype_T));
   assert(dt);
-
-  dt->type_name = malloc(strlen(type_name) + 1);
-  assert(dt->type_name);
-  strcpy(dt->type_name, type_name);
+  
+  if (type_name != NULL) {
+    dt->type_name = malloc(strlen(type_name) + 1);
+    assert(dt->type_name);
+    strcpy(dt->type_name, type_name);
+  } else {
+    dt->type_name = NULL;
+  }
 
   return dt;
 }
@@ -402,6 +406,9 @@ static void shunting_pops(ExpressionStack_T **postfix, ExpressionStack_T **opera
       case EXP_INDEX:
         top_desc = &prec_table[SPECO_INDEX];
         break;
+      case EXP_CALL:
+        top_desc = &prec_table[SPECO_CALL];
+        break;
       default:
         top_desc = NULL;
     }
@@ -448,6 +455,13 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
       expnode_print(node->inop->array, ind + 1);
       expnode_print(node->inop->index, ind + 1);
       break;
+    case EXP_CALL:
+      printf("CALL\n");
+      expnode_print(node->callop->func, ind + 1);
+      if (node->callop->args != NULL) {
+        expnode_print(node->callop->args, ind + 1);
+      }
+      break;
     default:
       break;
   }
@@ -482,18 +496,20 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
     case NODE_FUNCTION:
       printf("FUNCTION: {\n");
       indent(ind + 1);
+      printf("NAME: %s\n", node->nodefunc->func_name);
+      indent(ind + 1);
       printf("RETURNS: ");
 			if (node->nodefunc->rettype != NULL) {
 				print_datatype(node->nodefunc->rettype);
 			} else {
-				printf("void\n");
+				printf("void");
 			}
       printf("\n");
       indent(ind + 1);
       printf("ARGS: {\n");
       for (Declaration_T *arg = node->nodefunc->args; arg != NULL; arg = arg->next) {
         indent(ind + 2);
-        print_datatype(arg->dt);
+        print_decl(arg);
         printf("\n");
       }
       indent(ind + 1);
@@ -577,6 +593,12 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
       node->inop->array = NULL;
       node->inop->index = NULL;
       break;
+    case EXP_CALL:
+      node->callop = malloc(sizeof(CallNode_T));
+      assert(node->callop);
+      node->callop->func = NULL;
+      node->callop->args = NULL;
+      break;
     default:
       break;
   }
@@ -594,6 +616,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
   NodeExpression_T *node;
   NodeExpression_T *top;
   LexToken_T *oldmark;
+  LexToken_T *prev = NULL;
   const OperatorDescriptor_T *opinfo;
 
   /* ===== PHASE ONE | SHUNTING YARD ===== */
@@ -621,6 +644,8 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         expstack_push(&postfix, node);
         break;
       case TOKEN_OPERATOR:
+
+        /* standard operator? */
         if (prec_table[t->oval].prec) {
           opinfo = &prec_table[t->oval];
           shunting_pops(&postfix, &operators, opinfo);
@@ -632,8 +657,27 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
             node->unop->optype = t->oval;
           }
           expstack_push(&operators, node);
+
+        /* function call? TODO more cases */
+        } else if (t->oval == '(' && prev != NULL && prev->type == TOKEN_IDENTIFIER) {
+          node = empty_expnode(EXP_CALL, t->lineno);
+          oldmark = P->mark;
+          safe_eat(P);
+          if (on_string(P, ")", NULL)) {
+            node->callop->args = NULL;
+          } else {
+            mark_operator(P, '(', ')');
+            node->callop->args = parse_expression(P, NULL);
+            node->callop->args->parent = node;
+          }
+          node->callop->func = NULL;
+          P->mark = oldmark;
+          opinfo = &prec_table[SPECO_CALL];
+          shunting_pops(&postfix, &operators, opinfo);
+          expstack_push(&operators, node);
+
+        /* array index? */
         } else if (t->oval == '[') {
-          /* parse array index? */
           node = empty_expnode(EXP_INDEX, t->lineno);
           oldmark = P->mark;
           safe_eat(P);
@@ -644,10 +688,14 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           opinfo = &prec_table[SPECO_INDEX];
           shunting_pops(&postfix, &operators, opinfo);
           expstack_push(&operators, node);
+
+        /* standard opening parenthesis? */
         } else if (t->oval == '(') {
           node = empty_expnode(EXP_UNARY, t->lineno);
           node->unop->optype = '(';
           expstack_push(&operators, node);
+
+        /* standard closing parenthesis? */
         } else if (t->oval == ')') {
           while (1) {
             top = expstack_top(&operators);
@@ -679,9 +727,9 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
       strcpy(node->binop->as_string, t->as_string);
     }
 
+    prev = t;
     safe_eat(P);
   }
-
 
   /* empty remaining operator stack into postfix */
   while (expstack_top(&operators)) {
@@ -717,6 +765,14 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           parse_err(P, malformed_message);
         }
         node->inop->array->parent = node;
+        expstack_push(&tree, node);
+        break;
+      case EXP_CALL:
+        node->callop->func = expstack_pop(&tree);
+        if (node->callop->func == NULL) {
+          parse_err(P, malformed_message);
+        }
+        node->callop->func->parent = node;
         expstack_push(&tree, node);
         break;
       case EXP_UNARY:
@@ -904,6 +960,7 @@ static void parse_function(ParseState_T *P) {
   Declaration_T *arg = NULL, *backarg = NULL;
   ASTNode_T *func = empty_node(NODE_FUNCTION);
   NodeFunction_T *fnode = func->nodefunc;
+  
   eat(P, "func");
   if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
     parse_err(P, "expected identifier to follow token 'func'");
@@ -911,6 +968,16 @@ static void parse_function(ParseState_T *P) {
   fnode->func_name = malloc(strlen(P->tok->as_string) + 1);
   assert(fnode->func_name);
   strcpy(fnode->func_name, P->tok->as_string);
+
+  /* function gets a custom datatype WITHOUT a typename. */
+  fnode->dt = make_empty_datatype(NULL);
+  fnode->dt->type = DT_FUNCTION;
+  fnode->dt->fdesc = malloc(sizeof(FunctionDescriptor_T));
+  assert(fnode->dt->fdesc);
+  fnode->dt->fdesc->arguments = NULL;
+  fnode->dt->fdesc->return_type = NULL;
+  fnode->dt->fdesc->nargs = 0;
+
   safe_eat(P);
   eat(P, "(");
   while (!on_string(P, ")", NULL)) {
@@ -927,6 +994,16 @@ static void parse_function(ParseState_T *P) {
     if (on_string(P, ",", NULL)) {
       safe_eat(P);
     }
+    
+    /* insert into argument list */
+    if (fnode->dt->fdesc->arguments == NULL) {
+      fnode->dt->fdesc->arguments = arg;
+    } else {
+      backarg->next = arg;
+    }
+
+    fnode->dt->fdesc->nargs++;
+
     backarg = arg;
   }
   eat(P, ")");
@@ -935,11 +1012,19 @@ static void parse_function(ParseState_T *P) {
 	/* special case for functions... may mark return type as void.  void will
 	 * only ever be used in this specific context */
 	if (on_string(P, "void", NULL)) {
-		fnode->rettype = NULL;
+		fnode->dt->fdesc->return_type = NULL;
 		safe_eat(P);
 	} else {
-		fnode->rettype = parse_datatype(P);
+    fnode->dt->fdesc->return_type = parse_datatype(P);
 	}
+
+  /* register function in table */
+  Declaration_T *decl = empty_decl();
+  decl->name = malloc(strlen(fnode->func_name) + 1);
+  assert(decl->name);
+  strcpy(decl->name, fnode->func_name);
+  decl->dt = fnode->dt; /* TODO SHOULD DEEPCOPY AND CLAIM OWNERSHIP */
+  hash_insert(P->functions, decl->name, decl);
   
   append_node(P, func);
 
@@ -1046,6 +1131,9 @@ static ParseState_T *init_parsestate(LexState_T *L) {
   P->builtin->char_t  = make_datatype(CHARTYPE_NAME, 0, 0, CHARTYPE_SIZE, false);
   P->builtin->bool_t  = make_datatype(BOOLTYPE_NAME, 0, 0, BOOLTYPE_SIZE, false);
 
+  /* init default functions */
+  P->functions = hash_init();
+
   /* init abstract syntax tree with just a root.
    * the root is just a block, essentially parsing 
    * the entire file as: { ..file.. } */
@@ -1059,6 +1147,10 @@ static ParseState_T *init_parsestate(LexState_T *L) {
 
   return P;
 
+}
+
+static void print_registered_functions(const char *key, void *value, void *cl) {
+  printf("function: %s\n", key);
 }
 
 ParseState_T *parse_file(LexState_T *L) {
@@ -1091,6 +1183,9 @@ ParseState_T *parse_file(LexState_T *L) {
   printf("AST printout:\n");
   astnode_print(P->root, 0);
 
+  printf("registered functions:\n");
+  hash_foreach(P->functions, print_registered_functions, NULL);
+
   return P;
 
 }
@@ -1098,3 +1193,4 @@ ParseState_T *parse_file(LexState_T *L) {
 void parse_cleanup(ParseState_T **P) {
 
 }
+

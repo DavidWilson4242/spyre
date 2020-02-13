@@ -27,6 +27,7 @@ typedef enum NodeExpressionType {
   EXP_BINARY,
   EXP_INTEGER,
   EXP_INDEX,
+  EXP_CALL,
   EXP_FLOAT,
 	EXP_IDENTIFIER
 } NodeExpressionType_T;
@@ -52,8 +53,8 @@ typedef struct Datatype {
   DatatypeType_T type;
   
   union {
-    struct FunctionDescriptor_T *fdesc;
-    struct StructDescriptor_T   *sdesc;
+    struct FunctionDescriptor *fdesc;
+    struct StructDescriptor   *sdesc;
   };
   struct Datatype *next;    /* if I'm a member, pointer to next member */
 } Datatype_T;
@@ -68,9 +69,10 @@ typedef struct Declaration {
 typedef struct FunctionDescriptor {
   Declaration_T *arguments;
   Datatype_T *return_type;
+  size_t nargs;
 } FunctionDescriptor_T;
 
-typedef struct StructDescriptor_T {
+typedef struct StructDescriptor {
   SpyreHash_T *members;
 } StructDescriptor_T;
 
@@ -99,6 +101,11 @@ typedef struct IndexNode {
   struct NodeExpression *array;
 } IndexNode_T;
 
+typedef struct CallNode {
+  struct NodeExpression *func;
+  struct NodeExpression *args;
+} CallNode_T;
+
 typedef struct NodeExpression {
 	size_t lineno;
 	Datatype_T *resolved; /* assigned in typechecker */
@@ -113,6 +120,7 @@ typedef struct NodeExpression {
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
     IndexNode_T *inop;
+    CallNode_T *callop;
   };
 } NodeExpression_T;
 
@@ -142,6 +150,7 @@ typedef struct NodeReturn {
 
 typedef struct NodeFunction {
   char *func_name;
+  Datatype_T *dt;
   Declaration_T *args;
   NodeExpression_T *special_ret;
   Datatype_T *rettype;
@@ -168,7 +177,8 @@ typedef struct ParseState {
   LexToken_T *tok;
   LexToken_T *mark;
   BuiltinTypes_T *builtin;
-  SpyreHash_T *usertypes;
+  SpyreHash_T *usertypes; /* table of Datatype_T */ 
+  SpyreHash_T *functions; /* table of Declaration_T */
   ASTNode_T *root;
   ASTNode_T *block;
   ASTNode_T *backnode;

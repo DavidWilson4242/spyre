@@ -65,9 +65,9 @@ static Declaration_T *decl_from_identifier(ParseState_T *P, NodeExpression_T *no
     }
   }
   */
-
+  
+  /* search for local variable or function argument */
   Declaration_T *search = NULL;
-
   while (inside != NULL) {
     if (inside->type == NODE_BLOCK) {
       search = search_in_decl_list(inside->nodeblock->vars, node->identval);
@@ -81,7 +81,10 @@ static Declaration_T *decl_from_identifier(ParseState_T *P, NodeExpression_T *no
     inside = inside->parent;
   }
 
-  return NULL;
+  /* search for function in registered functions */
+  search = hash_get(P->functions, node->identval);
+
+  return search;
 }
 
 
@@ -159,19 +162,34 @@ static Declaration_T *deepcopy_decl(Declaration_T *decl) {
   strcpy(clone->name, decl->name);
   clone->dt = deepcopy_datatype(decl->dt);
   clone->local_index = decl->local_index;
+  clone->next = NULL;
   return clone;
 }
 
 static Datatype_T *deepcopy_datatype(Datatype_T *dt) {
+  
+  if (dt == NULL) {
+    return NULL;
+  }
+
+  Declaration_T *backp = NULL, *argcopy;
   Datatype_T *clone = malloc(sizeof(Datatype_T));
   assert(clone);
-  clone->type_name = malloc(strlen(dt->type_name) + 1);
-  strcpy(clone->type_name, dt->type_name);
+
+  /* remember: functions don't have a typename */
+  if (dt->type_name != NULL) {
+    clone->type_name = malloc(strlen(dt->type_name) + 1);
+    assert(clone->type_name);
+    strcpy(clone->type_name, dt->type_name);
+  } else {
+    clone->type_name = NULL;
+  }
   clone->arrdim = dt->arrdim;
   clone->ptrdim = dt->ptrdim;
   clone->primsize = dt->primsize;
   clone->is_const = dt->is_const;
   clone->type = dt->type;
+  clone->next = NULL;
   
   /* struct or function that requires a deeper copy? */
   switch (dt->type) {
@@ -182,6 +200,20 @@ static Datatype_T *deepcopy_datatype(Datatype_T *dt) {
       hash_foreach(dt->sdesc->members, deepcopy_struct_members, clone->sdesc->members);
       break;
     case DT_FUNCTION:
+      clone->fdesc = malloc(sizeof(FunctionDescriptor_T));
+      assert(clone->fdesc);
+      clone->fdesc->return_type = deepcopy_datatype(dt->fdesc->return_type);
+      clone->fdesc->arguments = NULL;
+      clone->fdesc->nargs = dt->fdesc->nargs;
+      for (Declaration_T *arg = dt->fdesc->arguments; arg != NULL; arg = arg->next) {
+        argcopy = deepcopy_decl(arg);
+        if (backp != NULL) {
+          backp->next = argcopy;
+        } else {
+          clone->fdesc->arguments = argcopy;
+        }
+        backp = argcopy;
+      } 
       break;
     default: 
       clone->sdesc = NULL;
@@ -246,6 +278,14 @@ static void typecheck_binary_operator(ParseState_T *P, NodeExpression_T *exp,
       exp->resolved = make_raw_datatype("bool");
       break;
 
+    /* comma is a very special case.  it doesn't actually get resolved itself.  instead,
+     * it is resolved NULL but its operands are resolved */
+    case ',':
+      typecheck_expression(P, left);
+      typecheck_expression(P, right);
+      exp->resolved = NULL;
+      break;
+
     default:
       typecheck_expression(P, left);
       typecheck_expression(P, right);
@@ -268,14 +308,96 @@ static void typecheck_index_operator(ParseState_T *P, NodeExpression_T *exp,
 
   exp->resolved = deepcopy_datatype(array->resolved);
   exp->resolved->arrdim -= 1;
-  printf("RESOLVED TO %zu\n", exp->resolved->arrdim);
+}
+
+/* helper function for typecheck_function_call */
+static bool is_comma(NodeExpression_T *node) {
+  return node->type == EXP_BINARY && node->binop->optype == ',';
+}
+
+static void typecheck_function_call(ParseState_T *P, NodeExpression_T *exp,
+                                    NodeExpression_T *func, NodeExpression_T *args) {
+  typecheck_expression(P, func);
+  if (args != NULL) {
+    typecheck_expression(P, args);
+  }
+
+  /* arguments are nested in a comma-rooted expression tree (or NULL for no
+   * arguments, just a regular expression for one argument).  The first
+   * argument is located on the right-leaf of the lowest rightmost comma.
+   * The second argument is under that same comma to the left.  The remaining
+   * arguments are located to the left of parent commas */
+  const Datatype_T *fres = func->resolved;
+  Declaration_T *argdecls;
+  NodeExpression_T *root = args;
+  NodeExpression_T **linargs;
+  size_t argc = 0;
+  size_t argwrite;
+  
+  /* first, count arguments */
+  if (root != NULL) {
+    argc = 1;
+    if (is_comma(root)) {
+      argc = 2;
+      while (is_comma(root->binop->left_operand)) {
+        argc += 1;
+        root = root->binop->left_operand;
+      }
+    }
+  }
+  root = args;
+
+  /* ensure correct number of arguments */
+  if (argc != fres->fdesc->nargs) {
+    typecheck_exp_err(exp, "passing incorrect number of arguments to function.  expected %zu argument%s, got %zu",
+                      fres->fdesc->nargs, (fres->fdesc->nargs == 1 ? "" : "s"), argc);
+  }
+
+  /* now pass again and write arguments into array if necessary */
+  if (argc >= 1) {
+    linargs = malloc(sizeof(NodeExpression_T *) * argc);
+    assert(linargs);
+    if (argc == 1) {
+      linargs[0] = root;
+    } else {
+      linargs = malloc(sizeof(NodeExpression_T *) * argc);
+      assert(linargs);
+      while (is_comma(root->binop->left_operand)) {
+        root = root->binop->left_operand;
+      } 
+      linargs[0] = root->binop->left_operand;
+      linargs[1] = root->binop->right_operand;
+      root = root->parent;
+      argwrite = 2;
+      while (root != NULL) {
+        linargs[argwrite++] = root->binop->right_operand;
+        root = root->parent;
+      }
+    }
+    
+    argdecls = fres->fdesc->arguments;
+    for (size_t i = 0; i < argc; i++) {
+      typecheck_expression(P, linargs[i]);
+      if (!compare_datatypes_strict(linargs[i]->resolved, argdecls->dt)) {
+        typecheck_exp_err(exp, "argument #%zu to function is of type '%s'; expected type '%s'",
+                          i + 1, linargs[i]->resolved->type_name, argdecls->dt->type_name);
+      }
+      
+      argdecls = argdecls->next;
+    }
+
+    free(linargs);
+  }
+
+  exp->resolved = deepcopy_datatype(func->resolved->fdesc->return_type);
 }
 
 static void typecheck_identifier(ParseState_T *P, NodeExpression_T *exp) {
   Declaration_T *decl = decl_from_identifier(P, exp); 
   if (decl == NULL) {
-    typecheck_exp_err(exp, "unknown identifier '%s'", exp->identval);
+    typecheck_exp_err(exp, "undefined identifier '%s'", exp->identval);
   }
+  printf("FOUND %s as %p\n", exp->identval, decl->dt);
   exp->resolved = deepcopy_datatype(decl->dt);
 }
 
@@ -289,6 +411,9 @@ static void typecheck_expression(ParseState_T *P, NodeExpression_T *exp) {
       break;
     case EXP_INDEX:
       typecheck_index_operator(P, exp, exp->inop->array, exp->inop->index);
+      break;
+    case EXP_CALL:
+      typecheck_function_call(P, exp, exp->callop->func, exp->callop->args);
       break;
     case EXP_INTEGER:
       exp->resolved = make_raw_datatype("int");

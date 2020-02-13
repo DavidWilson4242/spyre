@@ -1,19 +1,26 @@
-Vector2: struct {
-	x: int;
-	y: int;
+Vector3: struct {
+  x: float;
+  y: float;
+  z: float;
 }
 
 Matrix: struct {
-	v0: Vector2;
-	v1: Vector2;
+  values: float[][];
+}
+
+func matrix_solver_thing(mat: Matrix, vector: Vector3, random_thing: int) -> float {
+  return radom_thing;
 }
 
 func main() -> void {
   
-  x: int[][];
-  sub: int[];
-  
-  x[0] = sub;
+  matrix: Matrix;
+  vector: Vector3;
+
+  x: int;
+  y: int;
+
+  x = matrix_solver_thing(matrix, vector, matrix_solver_thing(matrix, vector, 42)) * 18; 
 
 }
 
