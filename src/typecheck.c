@@ -91,7 +91,7 @@ static bool compare_datatypes_strict(Datatype_T *a, Datatype_T *b) {
   return (
     (a->type == b->type)
     && (a->ptrdim == b->ptrdim)
-    && (a->arrdim == b->ptrdim)
+    && (a->arrdim == b->arrdim)
     && (a->is_const == b->is_const)
     && !strcmp(a->type_name, b->type_name)
   );
@@ -258,6 +258,19 @@ static void typecheck_binary_operator(ParseState_T *P, NodeExpression_T *exp,
   }
 }
 
+static void typecheck_index_operator(ParseState_T *P, NodeExpression_T *exp,
+                                     NodeExpression_T *array, NodeExpression_T *index) {
+  typecheck_expression(P, array);
+  typecheck_expression(P, index);
+  if (array->resolved->arrdim == 0) {
+    typecheck_exp_err(exp, "attempt to index non-array type (got type '%s')", array->resolved->type_name);
+  }
+
+  exp->resolved = deepcopy_datatype(array->resolved);
+  exp->resolved->arrdim -= 1;
+  printf("RESOLVED TO %zu\n", exp->resolved->arrdim);
+}
+
 static void typecheck_identifier(ParseState_T *P, NodeExpression_T *exp) {
   Declaration_T *decl = decl_from_identifier(P, exp); 
   if (decl == NULL) {
@@ -270,8 +283,12 @@ static void typecheck_expression(ParseState_T *P, NodeExpression_T *exp) {
   Declaration_T *decl;
   switch (exp->type) {
     case EXP_BINARY:
-      return typecheck_binary_operator(P, exp, exp->binop->left_operand, exp->binop->right_operand);    
+      typecheck_binary_operator(P, exp, exp->binop->left_operand, exp->binop->right_operand);    
+      break;
     case EXP_UNARY:
+      break;
+    case EXP_INDEX:
+      typecheck_index_operator(P, exp, exp->inop->array, exp->inop->index);
       break;
     case EXP_INTEGER:
       exp->resolved = make_raw_datatype("int");

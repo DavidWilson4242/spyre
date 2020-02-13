@@ -11,8 +11,9 @@ Matrix: struct {
 func main() -> void {
   
   x: int[][];
-
-  x[10][20];
+  sub: int[];
+  
+  x[0] = sub;
 
 }
 
