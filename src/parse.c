@@ -688,9 +688,6 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
 
           /* array index? */
         } else if (t->oval == '[') {
-          while(1) {
-            printf("yeet\n")';
-          }
           node = empty_expnode(EXP_INDEX, t->lineno);
           oldmark = P->mark;
           safe_eat(P);
