@@ -127,7 +127,7 @@ static Datatype_T *make_datatype(const char *type_name, unsigned arrdim, unsigne
 static Datatype_T *make_empty_datatype(const char *type_name) {
   Datatype_T *dt = calloc(1, sizeof(Datatype_T));
   assert(dt);
-  
+
   if (type_name != NULL) {
     dt->type_name = malloc(strlen(type_name) + 1);
     assert(dt->type_name);
@@ -499,11 +499,11 @@ static void astnode_print(ASTNode_T *node, size_t ind) {
       printf("NAME: %s\n", node->nodefunc->func_name);
       indent(ind + 1);
       printf("RETURNS: ");
-			if (node->nodefunc->rettype != NULL) {
-				print_datatype(node->nodefunc->rettype);
-			} else {
-				printf("void");
-			}
+      if (node->nodefunc->rettype != NULL) {
+        print_datatype(node->nodefunc->rettype);
+      } else {
+        printf("void");
+      }
       printf("\n");
       indent(ind + 1);
       printf("ARGS: {\n");
@@ -566,9 +566,9 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
   NodeExpression_T *node = malloc(sizeof(NodeExpression_T));
   assert(node);
   node->parent = NULL;
-	node->nodeparent = NULL;
+  node->nodeparent = NULL;
   node->type = type;
-	node->lineno = lineno;
+  node->lineno = lineno;
   switch (type) {
     case EXP_INTEGER:
       node->ival = 0;
@@ -637,12 +637,22 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         expstack_push(&postfix, node);
         break;
       case TOKEN_IDENTIFIER:
-        node = empty_expnode(EXP_IDENTIFIER, t->lineno);
-				node->identval = malloc(strlen(t->as_string) + 1);
-				assert(node->identval);
-				strcpy(node->identval, t->as_string);
-        expstack_push(&postfix, node);
+
+        /* 'new' is a special case identifier */
+        if (is_string(P, "new", NULL)) {
+          node = empty_expnode(EXP_NEW, t->lineno);
+          safe_eat(P);
+          node->newval = parse_datatype(P);
+        } else {
+
+          node = empty_expnode(EXP_IDENTIFIER, t->lineno);
+          node->identval = malloc(strlen(t->as_string) + 1);
+          assert(node->identval);
+          strcpy(node->identval, t->as_string);
+          expstack_push(&postfix, node);
+        }
         break;
+
       case TOKEN_OPERATOR:
 
         /* standard operator? */
@@ -658,7 +668,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           }
           expstack_push(&operators, node);
 
-        /* function call? TODO more cases */
+          /* function call? TODO more cases */
         } else if (t->oval == '(' && prev != NULL && prev->type == TOKEN_IDENTIFIER) {
           node = empty_expnode(EXP_CALL, t->lineno);
           oldmark = P->mark;
@@ -676,8 +686,11 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           shunting_pops(&postfix, &operators, opinfo);
           expstack_push(&operators, node);
 
-        /* array index? */
+          /* array index? */
         } else if (t->oval == '[') {
+          while(1) {
+            printf("yeet\n")';
+          }
           node = empty_expnode(EXP_INDEX, t->lineno);
           oldmark = P->mark;
           safe_eat(P);
@@ -689,13 +702,13 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
           shunting_pops(&postfix, &operators, opinfo);
           expstack_push(&operators, node);
 
-        /* standard opening parenthesis? */
+          /* standard opening parenthesis? */
         } else if (t->oval == '(') {
           node = empty_expnode(EXP_UNARY, t->lineno);
           node->unop->optype = '(';
           expstack_push(&operators, node);
 
-        /* standard closing parenthesis? */
+          /* standard closing parenthesis? */
         } else if (t->oval == ')') {
           while (1) {
             top = expstack_top(&operators);
@@ -785,32 +798,32 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         expstack_push(&tree, node);
         break;
       case EXP_BINARY: {
-         NodeExpression_T *leaves[2];
+        NodeExpression_T *leaves[2];
 
-         /* binary operator? pop off two operands */
-         for (size_t i = 0; i < 2; i++) {
-           leaves[i] = expstack_pop(&tree);
-           if (!leaves[i]) {
-             parse_err(P, malformed_message);
-           }
-           leaves[i]->parent = node;
-           leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
-         }
+        /* binary operator? pop off two operands */
+        for (size_t i = 0; i < 2; i++) {
+          leaves[i] = expstack_pop(&tree);
+          if (!leaves[i]) {
+            parse_err(P, malformed_message);
+          }
+          leaves[i]->parent = node;
+          leaves[i]->leaf = (i == 1 ? LEAF_LEFT : LEAF_RIGHT);
+        }
 
-         /* swap order */
-         node->binop->left_operand = leaves[1];
-         node->binop->right_operand = leaves[0];
+        /* swap order */
+        node->binop->left_operand = leaves[1];
+        node->binop->right_operand = leaves[0];
 
-         expstack_push(&tree, node);
-         break;
-       }
+        expstack_push(&tree, node);
+        break;
+      }
     }
   }
 
   NodeExpression_T *final_value = expstack_pop(&tree);
 
-	/* only root-level expnode gets a reference to the parent node */
-	final_value->nodeparent = nodeparent;
+  /* only root-level expnode gets a reference to the parent node */
+  final_value->nodeparent = nodeparent;
 
   if (tree != NULL) {
     parse_err(P, "an expression may only have one result");
@@ -960,7 +973,7 @@ static void parse_function(ParseState_T *P) {
   Declaration_T *arg = NULL, *backarg = NULL;
   ASTNode_T *func = empty_node(NODE_FUNCTION);
   NodeFunction_T *fnode = func->nodefunc;
-  
+
   eat(P, "func");
   if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
     parse_err(P, "expected identifier to follow token 'func'");
@@ -989,12 +1002,12 @@ static void parse_function(ParseState_T *P) {
     }
     if (!on_string(P, ")", NULL) && !on_string(P, ",", NULL)) {
       parse_err(P, "expected ')' or ',' to follow function argument.  Got token '%s'",
-                   P->tok->as_string);
+          P->tok->as_string);
     }
     if (on_string(P, ",", NULL)) {
       safe_eat(P);
     }
-    
+
     /* insert into argument list */
     if (fnode->dt->fdesc->arguments == NULL) {
       fnode->dt->fdesc->arguments = arg;
@@ -1009,14 +1022,14 @@ static void parse_function(ParseState_T *P) {
   eat(P, ")");
   eat(P, "->");
 
-	/* special case for functions... may mark return type as void.  void will
-	 * only ever be used in this specific context */
-	if (on_string(P, "void", NULL)) {
-		fnode->dt->fdesc->return_type = NULL;
-		safe_eat(P);
-	} else {
+  /* special case for functions... may mark return type as void.  void will
+   * only ever be used in this specific context */
+  if (on_string(P, "void", NULL)) {
+    fnode->dt->fdesc->return_type = NULL;
+    safe_eat(P);
+  } else {
     fnode->dt->fdesc->return_type = parse_datatype(P);
-	}
+  }
 
   /* register function in table */
   Declaration_T *decl = empty_decl();
@@ -1025,7 +1038,7 @@ static void parse_function(ParseState_T *P) {
   strcpy(decl->name, fnode->func_name);
   decl->dt = fnode->dt; /* TODO SHOULD DEEPCOPY AND CLAIM OWNERSHIP */
   hash_insert(P->functions, decl->name, decl);
-  
+
   append_node(P, func);
 
   /* optionally, user may use the syntax
@@ -1042,8 +1055,8 @@ static void parse_function(ParseState_T *P) {
 
 static bool should_parse_struct(ParseState_T *P) {
   return on_type(P, TOKEN_IDENTIFIER, NULL)
-         && on_string(P, ":", peek(P, 1))
-         && on_string(P, "struct", peek(P, 2));
+    && on_string(P, ":", peek(P, 1))
+    && on_string(P, "struct", peek(P, 2));
 }
 
 /* syntax:
@@ -1051,7 +1064,7 @@ static bool should_parse_struct(ParseState_T *P) {
 static void parse_struct(ParseState_T *P) {
   Declaration_T *member;
   Datatype_T *dt;
-  
+
   /* ensure no duplicates */
   if (hash_get(P->usertypes, P->tok->sval)) {
     parse_err(P, "redeclaration of type '%s'", P->tok->sval);
@@ -1068,7 +1081,7 @@ static void parse_struct(ParseState_T *P) {
   eat(P, ":");
   eat(P, "struct");
   eat(P, "{");
-  
+
   /* insert new members into the struct's member table.  prevent
    * duplicate entries */
   while (!on_string(P, "}", NULL)) {

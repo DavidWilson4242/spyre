@@ -29,7 +29,8 @@ typedef enum NodeExpressionType {
   EXP_INDEX,
   EXP_CALL,
   EXP_FLOAT,
-	EXP_IDENTIFIER
+	EXP_IDENTIFIER,
+  EXP_NEW
 } NodeExpressionType_T;
 
 typedef enum DatatypeType {

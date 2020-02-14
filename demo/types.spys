@@ -1,0 +1,12 @@
+JMP __ENTRY__
+matrix_solver_thing:
+RESL 24
+RET
+main:
+RESL 32
+IPUSH 18
+IMUL
+RET
+__ENTRY__:
+CALL main
+HALT
