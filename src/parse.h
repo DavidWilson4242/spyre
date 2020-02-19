@@ -107,11 +107,18 @@ typedef struct CallNode {
   struct NodeExpression *args;
 } CallNode_T;
 
+typedef struct NewNode {
+  Datatype_T *dt;
+  size_t arrdim;
+  struct NodeExpression *arrsize;
+} NewNode_T;
+
 typedef struct NodeExpression {
 	size_t lineno;
 	Datatype_T *resolved; /* assigned in typechecker */
   NodeExpressionType_T type;
   struct NodeExpression *parent;
+  struct NodeExpression *next;
 	struct ASTNode *nodeparent; /* each top-level expnode gets a pointer to parent node */
   LeafSide_T leaf;
   union {
@@ -122,6 +129,7 @@ typedef struct NodeExpression {
     UnaryOpNode_T *unop;
     IndexNode_T *inop;
     CallNode_T *callop;
+    NewNode_T *newop;
   };
 } NodeExpression_T;
 
@@ -170,6 +178,7 @@ typedef struct ASTNode {
     NodeBlock_T      *nodeblock;
     NodeReturn_T     *noderet;
     NodeFunction_T   *nodefunc;
+    NewNode_T        *nodenew;
   };
 } ASTNode_T;
 

@@ -23,6 +23,7 @@
 
 /* forward decls */
 static void mark_operator(ParseState_T *, uint8_t, uint8_t);
+static NodeExpression_T *parse_new_datatype(ParseState_T *, ASTNode_T *);
 
 typedef struct OperatorDescriptor {
   unsigned prec;
@@ -462,6 +463,20 @@ static void expnode_print(NodeExpression_T *node, size_t ind) {
         expnode_print(node->callop->args, ind + 1);
       }
       break;
+    case EXP_NEW:
+      printf("NEW\n");
+      indent(ind + 1);
+      printf("TYPENAME: %s\n", node->newop->dt->type_name);
+      indent(ind + 1);
+      printf("DIM: %zu\n", node->newop->arrdim);
+      indent(ind + 1);
+      printf("DIMS: [\n");
+      for (NodeExpression_T *n = node->newop->arrsize; n != NULL; n = n->next) {
+        expnode_print(n, ind + 2);
+      }
+      indent(ind + 1);
+      printf("]\n");
+      break;
     default:
       break;
   }
@@ -569,6 +584,7 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
   node->nodeparent = NULL;
   node->type = type;
   node->lineno = lineno;
+  node->next = NULL;
   switch (type) {
     case EXP_INTEGER:
       node->ival = 0;
@@ -598,6 +614,12 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
       assert(node->callop);
       node->callop->func = NULL;
       node->callop->args = NULL;
+      break;
+    case EXP_NEW:
+      node->newop = malloc(sizeof(NewNode_T));
+      node->newop->dt = NULL;
+      node->newop->arrdim = 0;
+      node->newop->arrsize = NULL;
       break;
     default:
       break;
@@ -630,26 +652,34 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         node = empty_expnode(EXP_INTEGER, t->lineno);
         node->ival = t->ival;
         expstack_push(&postfix, node);
+        safe_eat(P);
         break;
       case TOKEN_FLOAT:
         node = empty_expnode(EXP_FLOAT, t->lineno);
         node->fval = t->fval;
         expstack_push(&postfix, node);
+        safe_eat(P);
         break;
       case TOKEN_IDENTIFIER:
 
         /* 'new' is a special case identifier */
-        if (is_string(P, "new", NULL)) {
-          node = empty_expnode(EXP_NEW, t->lineno);
+        if (on_string(P, "new", NULL)) {
+          printf("AAAA\n");
           safe_eat(P);
-          node->newval = parse_datatype(P);
+          oldmark = P->mark;
+          node = parse_new_datatype(P, nodeparent);
+          /* mark gets mutated... */
+          P->mark = oldmark;
+          expstack_push(&postfix, node);
+          printf("BBB\n");
         } else {
-
+          
           node = empty_expnode(EXP_IDENTIFIER, t->lineno);
           node->identval = malloc(strlen(t->as_string) + 1);
           assert(node->identval);
           strcpy(node->identval, t->as_string);
           expstack_push(&postfix, node);
+        safe_eat(P);
         }
         break;
 
@@ -721,6 +751,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
         } else {
           parse_err(P, "unknown operator '%s' in expression", t->as_string);
         }
+        safe_eat(P);
         break;
       default:
         parse_err(P, "unexpected token '%s' when parsing expression", t->as_string);
@@ -738,7 +769,6 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
     }
 
     prev = t;
-    safe_eat(P);
   }
 
   /* empty remaining operator stack into postfix */
@@ -767,6 +797,7 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
       case EXP_INTEGER:
       case EXP_FLOAT:
       case EXP_IDENTIFIER:
+      case EXP_NEW:
         expstack_push(&tree, node);
         break;
       case EXP_INDEX:
@@ -852,15 +883,19 @@ static void mark_operator(ParseState_T *P, uint8_t inc, uint8_t end) {
 }
 
 static Datatype_T *datatype_from_name(ParseState_T *P, const char *type_name) {
-  Datatype_T *checktypes[] = {P->builtin->int_t,
+  Datatype_T *ret;
+  Datatype_T *checktypes[] = {
+    P->builtin->int_t,
     P->builtin->float_t,
     P->builtin->char_t,
-    P->builtin->bool_t};
+    P->builtin->bool_t
+  };
   for (size_t i = 0; i < sizeof(checktypes)/sizeof(Datatype_T *); i++) {
     if (!strcmp(checktypes[i]->type_name, type_name)) {
       return clone_datatype(checktypes[i]);
     }
   }
+
   return hash_get(P->usertypes, type_name);
 }
 
@@ -876,6 +911,37 @@ static Datatype_T *parse_datatype(ParseState_T *P) {
     dt->arrdim++;
   }
   return dt;
+}
+
+/* this is a special case of parse_datatype. expected to follow
+ * the 'new' keyword, where the user can specify array dimensions
+ * inside of brackets.  example syntax:
+ * new int[10*20][30];
+ * */
+static NodeExpression_T *parse_new_datatype(ParseState_T *P, ASTNode_T *nodeparent) {
+  NodeExpression_T *node = empty_expnode(EXP_NEW, P->tok->lineno);
+  NodeExpression_T *dimsize;
+  NodeExpression_T *backp = NULL;
+  node->newop->dt = datatype_from_name(P, P->tok->as_string);
+  node->newop->arrdim = 0;
+  safe_eat(P);
+  while (on_string(P, "[", NULL)) {
+    node->newop->arrdim += 1;
+    safe_eat(P);
+    if (on_string(P, "]", NULL)) {
+      parse_err(P, "expected array length following token '['");
+    }
+    mark_operator(P, '[', ']');
+    dimsize = parse_expression(P, nodeparent);
+    if (node->newop->arrsize == NULL) {
+      node->newop->arrsize = dimsize;
+    } else {
+      backp->next = dimsize;
+    }
+    backp = dimsize;
+    eat(P, "]");
+  }
+  return node;
 }
 
 static void parse_expression_node(ParseState_T *P) {

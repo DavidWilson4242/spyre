@@ -14,13 +14,10 @@ func matrix_solver_thing(mat: Matrix, vector: Vector3, random_thing: int) -> flo
 
 func main() -> void {
   
-  matrix: Matrix;
-  vector: Vector3;
+  matrix: Vector3[];
+  y: float;
 
-  x: int;
-  y: int;
-
-  x = matrix_solver_thing(matrix, vector, matrix_solver_thing(matrix, vector, 42)) * 18; 
+  matrix = new Vector3[20][40][60];
 
 }
 

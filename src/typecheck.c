@@ -27,6 +27,17 @@ static void typecheck_exp_err(NodeExpression_T *node, const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
+static char *dt_tostring(const Datatype_T *dt) {
+  size_t bytes = strlen(dt->type_name) + 2*dt->arrdim + 1; 
+  char *buf = malloc(bytes);
+  assert(buf);
+  strcpy(buf, dt->type_name);
+  for (size_t i = 0; i < dt->arrdim; i++) {
+    strcat(buf, "[]");
+  }
+  return buf;
+}
+
 static const char *operator_tostring(uint8_t op) {
   return "OP";
 }
@@ -235,7 +246,7 @@ static void typecheck_binary_operator(ParseState_T *P, NodeExpression_T *exp,
       typecheck_expression(P, left);
       if (left->resolved->type != DT_STRUCT) {
         typecheck_exp_err(exp, "expected struct as left-operand to operator '.' (got type '%s')",
-                               left->resolved->type_name);
+                               dt_tostring(left->resolved));
       }
       if (right->type != EXP_IDENTIFIER) {
         typecheck_exp_err(exp, "expected identifier as right-operand to operator '.'");
@@ -273,7 +284,9 @@ static void typecheck_binary_operator(ParseState_T *P, NodeExpression_T *exp,
       if (!compare_datatypes_strict(left->resolved, P->builtin->bool_t)
           || !compare_datatypes_strict(right->resolved, P->builtin->bool_t)) {
         typecheck_exp_err(exp, "operands to logical operator '%s' must be of type 'bool' (got types %s and %s)",
-                          exp->binop->as_string, left->resolved->type_name, right->resolved->type_name);
+                          exp->binop->as_string, 
+                          dt_tostring(left->resolved), 
+                          dt_tostring(right->resolved));
       }
       exp->resolved = make_raw_datatype("bool");
       break;
@@ -291,7 +304,9 @@ static void typecheck_binary_operator(ParseState_T *P, NodeExpression_T *exp,
       typecheck_expression(P, right);
       if (!compare_datatypes_strict(left->resolved, right->resolved)) {
         typecheck_exp_err(exp, "operands to operator '%s' do not match (got types %s and %s)",
-                          exp->binop->as_string, left->resolved->type_name, right->resolved->type_name);
+                          exp->binop->as_string, 
+                          dt_tostring(left->resolved), 
+                          dt_tostring(right->resolved));
       }
       exp->resolved = deepcopy_datatype(left->resolved);
       break;
@@ -303,7 +318,8 @@ static void typecheck_index_operator(ParseState_T *P, NodeExpression_T *exp,
   typecheck_expression(P, array);
   typecheck_expression(P, index);
   if (array->resolved->arrdim == 0) {
-    typecheck_exp_err(exp, "attempt to index non-array type (got type '%s')", array->resolved->type_name);
+    typecheck_exp_err(exp, "attempt to index non-array type (got type '%s')", 
+                      dt_tostring(array->resolved));
   }
 
   exp->resolved = deepcopy_datatype(array->resolved);
@@ -380,7 +396,9 @@ static void typecheck_function_call(ParseState_T *P, NodeExpression_T *exp,
       typecheck_expression(P, linargs[i]);
       if (!compare_datatypes_strict(linargs[i]->resolved, argdecls->dt)) {
         typecheck_exp_err(exp, "argument #%zu to function is of type '%s'; expected type '%s'",
-                          i + 1, linargs[i]->resolved->type_name, argdecls->dt->type_name);
+                          i + 1, 
+                          dt_tostring(linargs[i]->resolved), 
+                          dt_tostring(argdecls->dt));
       }
       
       argdecls = argdecls->next;
@@ -397,8 +415,20 @@ static void typecheck_identifier(ParseState_T *P, NodeExpression_T *exp) {
   if (decl == NULL) {
     typecheck_exp_err(exp, "undefined identifier '%s'", exp->identval);
   }
-  printf("FOUND %s as %p\n", exp->identval, decl->dt);
   exp->resolved = deepcopy_datatype(decl->dt);
+}
+
+static void typecheck_new(ParseState_T *P, NodeExpression_T *exp) {
+  NewNode_T *new = exp->newop;
+  for (NodeExpression_T *dim = new->arrsize; dim != NULL; dim = dim->next) {
+    typecheck_expression(P, dim);
+    if (!compare_datatypes_strict(P->builtin->int_t, dim->resolved)) {
+      typecheck_exp_err(exp, "array dimension does not evaluate to type 'int'"
+                             " (got type '%s')", dt_tostring(dim->resolved));
+    }
+  } 
+  exp->resolved = deepcopy_datatype(new->dt); 
+  exp->resolved->arrdim = new->arrdim;
 }
 
 static void typecheck_expression(ParseState_T *P, NodeExpression_T *exp) {
@@ -424,6 +454,9 @@ static void typecheck_expression(ParseState_T *P, NodeExpression_T *exp) {
     case EXP_IDENTIFIER:
       typecheck_identifier(P, exp);
       break;
+    case EXP_NEW:
+      typecheck_new(P, exp);
+      break;
     default: 
       break;
   }
@@ -440,7 +473,7 @@ void typecheck_if(ParseState_T *P, ASTNode_T *node) {
   typecheck_expression(P, node->nodeif->cond);
   if (!compare_datatypes_strict(node->nodeif->cond->resolved, P->builtin->bool_t)) {
     typecheck_exp_err(node->nodeif->cond, "if-condition must evaluate to type 'bool' (got type '%s')", 
-                      node->nodeif->cond->resolved->type_name);
+                      dt_tostring(node->nodeif->cond->resolved));
   }
 }
 
@@ -448,7 +481,7 @@ void typecheck_while(ParseState_T *P, ASTNode_T *node) {
   typecheck_expression(P, node->nodewhile->cond);
   if (!compare_datatypes_strict(node->nodewhile->cond->resolved, P->builtin->bool_t)) {
     typecheck_exp_err(node->nodewhile->cond, "while-condition must evaluate to type 'bool' (got type '%s')", 
-                      node->nodewhile->cond->resolved->type_name);
+                      dt_tostring(node->nodewhile->cond->resolved));
   }
 }
 
