@@ -23,15 +23,18 @@ static const struct {
   {"ISUB",    0x04, 0},
   {"IMUL",    0x05, 0},
   {"IDIV",    0x06, 0},
+  {"DUP",     0x20, 0},
   {"LDL",     0x80, 1},
   {"SVL",     0x81, 1},
   {"DER",     0x82, 0},
   {"RESL",    0x83, 1},
   {"LDMBR",   0x84, 1},
   {"SVMBR",   0x85, 1},
+  {"ARG",     0x86, 1},
   {"IPRINT",  0x90, 0},
   {"FPRINT",  0x91, 0},
   {"PPRINT",  0x92, 0},
+  {"FLAGS",   0x93, 0},
   {"ALLOC",   0xA0, 1},
   {"FREE",    0xA1, 0},
   {"TAGL",    0xA2, 1},
@@ -49,7 +52,11 @@ static const struct {
   {"JLT",     0xC9, 1},
   {"JLE",     0xCA, 1},
   {"JEQ",     0xCB, 1},
-  {"JNEQ",    0xCC, 1}
+  {"JNEQ",    0xCC, 1},
+  {"CALL",    0xCD, 2},
+  {"CCALL",   0xCE, 2},
+  {"IRET",    0xCF, 0},
+  {"RET",     0xD0, 0}
 };
 
 static void advance(AssembleState_T *A, size_t n) {
@@ -256,7 +263,9 @@ void assemble_file(const char *infile, const char *outfile) {
       read_instruction(A);
     }
   }
-
+  
+  /* some labels were undetermined during first pass.  fill these labels
+   * and report error for labels that are still missing */
   write_pending_labels(A);
   
   /* write bytecode buffer to file */

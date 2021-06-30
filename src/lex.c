@@ -542,9 +542,12 @@ LexState_T *lex_file(const char *filename) {
 
   }
   
+  printf("===== PHASE ONE: LEXER =====\n"); 
   for (LexToken_T *t = L->tokens; t != NULL; t = t->next) {
     print_token(t);
   }
+  printf("============================\n\n\n");
+
 
   return L;
 }

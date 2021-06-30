@@ -19,6 +19,9 @@
 #define INS_IMUL    0x05
 #define INS_IDIV    0x06
 
+/* misc */
+#define INS_DUP     0x20
+
 /* local management */
 #define INS_LDL     0x80 /* load local */
 #define INS_SVL     0x81 /* save TS to local */
@@ -26,11 +29,13 @@
 #define INS_RESL    0x83 /* reserve locals */
 #define INS_LDMBR   0x84 /* load member of segment on TS*/
 #define INS_SVMBR   0x85 /* save value TS of segment TS-1 member */
+#define INS_ARG     0x86 /* loads argument onto TS */
 
 /* debug */
 #define INS_IPRINT  0x90
 #define INS_FPRINT  0x91
 #define INS_PPRINT  0x92
+#define INS_FLAGS   0x93
 
 /* memory management and GC */
 #define INS_ALLOC   0xA0
@@ -53,6 +58,10 @@
 #define INS_JLE     0xCA
 #define INS_JEQ     0xCB
 #define INS_JNEQ    0xCC
+#define INS_CALL    0xCD
+#define INS_CCALL   0xCE
+#define INS_IRET    0xCF
+#define INS_RET     0xD0
 
 /* at the head of every segment allocation */
 typedef struct MemoryDescriptor {

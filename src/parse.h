@@ -29,7 +29,7 @@ typedef enum NodeExpressionType {
   EXP_INDEX,
   EXP_CALL,
   EXP_FLOAT,
-	EXP_IDENTIFIER,
+  EXP_IDENTIFIER,
   EXP_NEW
 } NodeExpressionType_T;
 
@@ -114,17 +114,17 @@ typedef struct NewNode {
 } NewNode_T;
 
 typedef struct NodeExpression {
-	size_t lineno;
-	Datatype_T *resolved; /* assigned in typechecker */
+  size_t lineno;
+  Datatype_T *resolved; /* assigned in typechecker */
   NodeExpressionType_T type;
   struct NodeExpression *parent;
   struct NodeExpression *next;
-	struct ASTNode *nodeparent; /* each top-level expnode gets a pointer to parent node */
+  struct ASTNode *nodeparent; /* each top-level expnode gets a pointer to parent node */
   LeafSide_T leaf;
   union {
     int64_t ival;
     double fval;
-		char *identval;
+    char *identval;
     BinaryOpNode_T *binop;
     UnaryOpNode_T *unop;
     IndexNode_T *inop;

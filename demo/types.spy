@@ -8,17 +8,14 @@ Matrix: struct {
   values: float[][];
 }
 
-func matrix_solver_thing(mat: Matrix, vector: Vector3, random_thing: int) -> float {
-  return radom_thing;
+func test(x: Matrix) -> void {
+
 }
 
 func main() -> void {
   
-  matrix: Vector3[];
-  y: float;
+  x: int;
 
-  matrix = new Vector3[20][40][60];
+  x = 30;
 
 }
-
-

@@ -90,9 +90,18 @@ static inline int64_t spyre_pop_int(SpyreState_T *S) {
   return *(int64_t *)&S->stack[S->sp];
 }
 
+static inline size_t spyre_pop_ptr(SpyreState_T *S) {
+  S->sp -= sizeof(size_t);
+  return *(size_t *)&S->stack[S->sp];
+}
+
 static inline void spyre_push_int(SpyreState_T *S, int64_t value) {
   *(int64_t *)&S->stack[S->sp] = value;
   S->sp += sizeof(int64_t);
+}
+
+static inline int64_t spyre_top_int(SpyreState_T *S) {
+  return *(int64_t *)&S->stack[S->sp - 8];
 }
 
 static inline void spyre_push_ptr(SpyreState_T *S, size_t value) {
@@ -186,6 +195,11 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         v0 = spyre_pop_int(S);
         spyre_push_int(S, v0 / v1);
         break;
+
+      /* misc */
+      case INS_DUP:
+	spyre_push_int(S, spyre_top_int(S));
+	break; 
       
       /* debug */
       case INS_IPRINT:
@@ -195,6 +209,14 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         break;
       case INS_PPRINT:
         break;
+      case INS_FLAGS:
+	printf("****** FLAGS ******\n");
+	printf("fz : %d\n", S->fz);
+	printf("feq: %d\n", S->feq);
+	printf("fgt: %d\n", S->fgt);
+	printf("fge: %d\n", S->fge);
+	printf("*******************\n");
+	break;
 
       /* memory management and GC */
       case INS_ALLOC:
@@ -220,11 +242,16 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         v0 = read_u64(S);
         spygc_untrack_locals(S, v0);
         break;
+      case INS_ARG:
+	v0 = read_u64(S);
+	v1 = *(uint64_t *)&S->stack[S->bp - 24]; /* number of args passed */
+	spyre_push_int(S, *(int64_t *)&S->stack[S->bp - 3*8 - (v1 - v0)*8]);
+	break;
 
       /* local management */
       case INS_LDL:
         v0 = read_u64(S);
-        spyre_push_ptr(S, *(size_t *)&S->stack[S->bp + v0*sizeof(uint64_t)]);
+        spyre_push_word(S, *(uint64_t *)&S->stack[S->bp + v0*sizeof(uint64_t)]);
         break;
       case INS_SVL:
         v0 = read_u64(S);
@@ -255,8 +282,8 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         S->fz = (v0 == 0);
         break;
       case INS_ICMP:
-        v0 = spyre_pop_int(S);
         v1 = spyre_pop_int(S);
+        v0 = spyre_pop_int(S);
         S->feq = (v0 == v1);
         S->fgt = (v0 > v1);
         S->fge = (v0 >= v1);
@@ -317,6 +344,33 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
           S->ip = v0;
         }
         break;
+      case INS_CALL:
+	v0 = read_u64(S); /* func addr */
+	v1 = read_u64(S); /* num args */	
+	spyre_push_int(S, v1);     /* push number args */
+	spyre_push_ptr(S, S->bp);  /* push base pointer */
+	spyre_push_ptr(S, S->ip);  /* push return address */
+	S->bp = S->sp;
+	S->ip = v0;
+	break;
+      case INS_CCALL:
+
+	break;
+      case INS_IRET:
+	v0 = spyre_pop_int(S); /* return value */
+	S->sp = S->bp;
+	S->ip = spyre_pop_ptr(S);
+	S->bp = spyre_pop_ptr(S);
+	S->sp -= spyre_pop_int(S)*8;
+	spyre_push_int(S, v0);
+	break;
+
+      case INS_RET:
+	S->sp = S->bp;
+	S->ip = spyre_pop_ptr(S);
+	S->bp = spyre_pop_ptr(S);
+	S->sp -= spyre_pop_int(S)*8;
+	break;
       default:
         break;
     }

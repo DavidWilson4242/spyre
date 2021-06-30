@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 #include "gen.h"
 
 /* syntax generation */
@@ -59,6 +60,44 @@ static void determine_local_indices(GenerateState_T *G) {
       assign_local_indices(G, a, 0);
     }
   }
+}
+
+/* attempts to find a local variable in the current generation context */
+static Declaration_T *get_local(ASTNode_T *ast, const char *ident) {
+  
+  switch (ast->type) {
+    case NODE_FUNCTION: {
+      Declaration_T *arg = ast->nodefunc->args;
+      for (; arg != NULL; arg = arg->next) {
+	if (!strcmp(arg->name, ident)) {
+	  return arg;
+	}
+      }
+      break;
+    }
+    case NODE_BLOCK: {
+      Declaration_T *decl = ast->nodeblock->vars;
+      for (; decl != NULL; decl = decl->next) {
+	if (!strcmp(decl->name, ident)) {
+	  return decl;
+	}
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  if (ast->next) {
+    return get_local(ast->next, ident);
+  }
+
+  if (ast->type == NODE_BLOCK) {
+    return get_local(ast->nodeblock->children, ident);
+  }
+
+  return NULL;
+
 }
 
 static void write_s(GenerateState_T *G, const char *s) {
@@ -133,9 +172,38 @@ static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) 
     case '/':
       write_s(G, "IDIV\n");
       break;
+    case '=':
+      write_s(G, "DUP\n");
+      break;
     default:
       break;
   }
+}
+
+/* assumes exp is of type EXP_IDENTIFIER */
+static void generate_identifier_expression(GenerateState_T *G, NodeExpression_T *exp) {
+  ASTNode_T *at = G->at;
+
+  bool is_assign = (exp->parent &&
+                    exp->parent->type == EXP_BINARY &&
+		    exp->parent->binop->optype == '=');
+  bool dont_der = false;
+
+  /* if it's an identifier on the LHS of =, load address */
+  dont_der = exp->leaf == LEAF_LEFT && is_assign; 
+
+  /* is it a local? */
+  Declaration_T *decl = get_local(G->at, exp->identval);
+
+
+  if (decl && dont_der) {
+    write_s(G, "LEA ");
+    write_int(G, decl->local_index); 
+  } else if (decl && !dont_der) {
+    write_s(G, "LDL "); 
+    write_int(G, decl->local_index);
+  }
+
 }
 
 static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
@@ -149,6 +217,17 @@ static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
       break;
     case EXP_INTEGER:
       generate_integer_expression(G, exp->ival);
+      break;
+    case EXP_INDEX:
+      break;
+    case EXP_CALL:
+      break;
+    case EXP_FLOAT:
+      break;
+    case EXP_IDENTIFIER:
+      generate_identifier_expression(G, exp); 
+      break;
+    case EXP_NEW:
       break;
     default:
       break;
@@ -174,6 +253,14 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
       case NODE_EXPRESSION:
         generate_expression(G, c->nodeexp);
         break;
+      case NODE_RETURN:
+	break;
+      case NODE_CONTINUE:
+	break;
+      case NODE_INCLUDE:
+	break;
+      case NODE_DECLARATION:
+	break;
       default:
         break;
     }

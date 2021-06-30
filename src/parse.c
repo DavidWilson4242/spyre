@@ -38,8 +38,8 @@ typedef struct OperatorDescriptor {
 } OperatorDescriptor_T;
 
 static const OperatorDescriptor_T prec_table[255] = {
-  [',']				      = {1,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['=']				      = {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [',']				= {1,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['=']				= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_INC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_DEC_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_MUL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
@@ -48,34 +48,34 @@ static const OperatorDescriptor_T prec_table[255] = {
   [SPECO_SHL_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_SHR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_AND_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-  [SPECO_OR_BY]		  = {2,  ASSOC_RIGHT, OPERAND_BINARY},
+  [SPECO_OR_BY]			= {2,  ASSOC_RIGHT, OPERAND_BINARY},
   [SPECO_XOR_BY]		= {2,  ASSOC_RIGHT, OPERAND_BINARY},
-  [SPECO_LOG_AND]	  = {3,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_LOG_AND]		= {3,  ASSOC_LEFT,  OPERAND_BINARY},
   [SPECO_LOG_OR]		= {3,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_EQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_NEQ]			  = {4,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['>']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_GE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['<']				      = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_LE]			  = {6,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['|']				      = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_SHL]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-  [SPECO_SHR]			  = {7,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['+']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['-']				      = {8,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['*']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['%']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['/']				      = {9,  ASSOC_LEFT,  OPERAND_BINARY},
-  ['@']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-  ['$']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-  ['!']				      = {10, ASSOC_RIGHT, OPERAND_UNARY},
-  [SPECO_TYPENAME]	= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  [SPECO_EQ]			= {4,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_NEQ]			= {4,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['>']				= {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_GE]			= {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['<']				= {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_LE]			= {6,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['|']				= {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_SHL]			= {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  [SPECO_SHR]			= {7,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['+']				= {8,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['-']				= {8,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['*']				= {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['%']				= {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['/']				= {9,  ASSOC_LEFT,  OPERAND_BINARY},
+  ['@']				= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  ['$']				= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  ['!']				= {10, ASSOC_RIGHT, OPERAND_UNARY},
+  [SPECO_TYPENAME]		= {10, ASSOC_RIGHT, OPERAND_UNARY},
   [SPECO_CAST]			= {10, ASSOC_RIGHT, OPERAND_UNARY},
-  [SPECO_INC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
-  [SPECO_DEC_ONE]	  = {11, ASSOC_LEFT,  OPERAND_UNARY},
+  [SPECO_INC_ONE]		= {11, ASSOC_LEFT,  OPERAND_UNARY},
+  [SPECO_DEC_ONE]		= {11, ASSOC_LEFT,  OPERAND_UNARY},
   [SPECO_CALL]			= {11, ASSOC_LEFT,  OPERAND_UNARY},
-  [SPECO_INDEX]		  = {11, ASSOC_LEFT,  OPERAND_UNARY},
-  ['.']				      = {11, ASSOC_LEFT,  OPERAND_BINARY}
+  [SPECO_INDEX]			= {11, ASSOC_LEFT,  OPERAND_UNARY},
+  ['.']				= {11, ASSOC_LEFT,  OPERAND_BINARY}
 };
 
 static void indent(size_t n) {
@@ -1255,12 +1255,13 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_expression_node(P);
     }
   }
-
-  printf("AST printout:\n");
+  
+  printf("===== PHASE TWO: PARSER =====\n");
   astnode_print(P->root, 0);
 
   printf("registered functions:\n");
   hash_foreach(P->functions, print_registered_functions, NULL);
+  printf("===============================\n\n\n");
 
   return P;
 
