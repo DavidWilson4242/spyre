@@ -12,7 +12,8 @@ typedef enum CompileMode {
   COMP_NONE = 0,
   COMP_FULL,
   COMP_ASSEMBLE,
-  COMP_EXECUTE
+  COMP_EXECUTE,
+  COMP_ALL
 } CompileMode_T;
 
 void usage() {
@@ -52,6 +53,8 @@ int main(int argc, char **argv) {
   }
 
   CompileMode_T compile_mode = COMP_NONE;
+  char *temp_comp_file = ".spyre_compile_output";
+  char *temp_asm_file = ".spyre_asm_output";
   char *infile = NULL;
   char *outfile = NULL;
 
@@ -70,6 +73,16 @@ int main(int argc, char **argv) {
     }
   }
 
+  /* everything? */
+  if (compile_mode == COMP_NONE) {
+    if (argc != 2) {
+      fprintf(stderr, "expected exactly one input file");
+      exit(EXIT_FAILURE);
+    }
+    infile = argv[1];
+    compile_mode = COMP_ALL;
+  }
+
   if ((compile_mode == COMP_ASSEMBLE || compile_mode == COMP_FULL) && outfile == NULL) {
     fprintf(stderr, "expected an output file\n");
     exit(EXIT_FAILURE);
@@ -82,10 +95,19 @@ int main(int argc, char **argv) {
     case COMP_NONE:
       fprintf(stderr, "expected a compile mode and input file\n");
       return EXIT_FAILURE;
+    case COMP_ALL:
+      L = lex_file(infile);
+      P = parse_file(L);
+      typecheck_syntax_tree(P);
+      generate_bytecode(P, temp_comp_file);
+      assemble_file(temp_comp_file, temp_asm_file);
+      spyre_execute_with_context(temp_asm_file, P);
+      lex_cleanup(&L);
+      parse_cleanup(&P);
+      break;
     case COMP_FULL:
       L = lex_file(infile);
       P = parse_file(L);
-      //spyre_execute_with_context(NULL, P);
       typecheck_syntax_tree(P);
       generate_bytecode(P, outfile);
       lex_cleanup(&L);

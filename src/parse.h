@@ -64,7 +64,10 @@ typedef struct Declaration {
   char *name;
   Datatype_T *dt;
   struct Declaration *next;
-  size_t local_index;
+  union {
+    size_t local_index;
+    size_t struct_index;
+  };
 } Declaration_T;
 
 typedef struct FunctionDescriptor {
@@ -85,6 +88,7 @@ typedef struct BuiltinTypes {
 } BuiltinTypes_T;
 
 typedef struct BinaryOpNode {
+  struct NodeExpression *me;
   struct NodeExpression *left_operand;
   struct NodeExpression *right_operand;
   char *as_string;
@@ -92,22 +96,26 @@ typedef struct BinaryOpNode {
 } BinaryOpNode_T;
 
 typedef struct UnaryOpNode {
+  struct NodeExpression *me;
   struct NodeExpression *operand;
   char *as_string;
   uint8_t optype;
 } UnaryOpNode_T;
 
 typedef struct IndexNode {
+  struct NodeExpression *me;
   struct NodeExpression *index;
   struct NodeExpression *array;
 } IndexNode_T;
 
 typedef struct CallNode {
+  struct NodeExpression *me;
   struct NodeExpression *func;
   struct NodeExpression *args;
 } CallNode_T;
 
 typedef struct NewNode {
+  struct NodeExpression *me;
   Datatype_T *dt;
   size_t arrdim;
   struct NodeExpression *arrsize;

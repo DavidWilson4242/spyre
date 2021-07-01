@@ -10,10 +10,13 @@ static void generate_block(GenerateState_T *, ASTNode_T **);
 static void generate_if(GenerateState_T *, ASTNode_T **);
 
 /* expression generation */
+static void generate_type_db(GenerateState_T *G, const Datatype_T *);
 static void generate_expression(GenerateState_T *G, NodeExpression_T *);
 static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *);
 static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *);
 static void generate_integer_expression(GenerateState_T *G, int64_t); 
+static void generate_assignment(GenerateState_T *G, BinaryOpNode_T *);
+static void generate_member_index(GenerateState_T *G, BinaryOpNode_T *);
 
 /* helper function for determine_local_indices.  recursively determines the local index
  * of function arguments, as well as local variables inside of blocks. 
@@ -116,12 +119,24 @@ static void write_label_ref(GenerateState_T *G, size_t label_index) {
   fprintf(G->outfile, "__L%zu", label_index);
 }
 
+static void generate_type_db(GenerateState_T *G, const Datatype_T *dt) {
+  write_s(G, dt->type_name);
+  write_s(G, ": db");
+  write_s(G, "\"");
+  write_s(G, dt->type_name);
+  write_s(G, "\"\n");
+}
+
+static void generate_type_db_map(const char *key, void *value, void *cl) {
+  generate_type_db((GenerateState_T *)cl, (const Datatype_T *)value);
+}
+
 static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
   ASTNode_T *func = *funcp;
   ASTNode_T **next = &func->next;
   write_s(G, func->nodefunc->func_name); 
   write_s(G, ":\nRESL ");
-  write_int(G, func->nodefunc->stack_space);
+  write_int(G, func->nodefunc->stack_space/8);
   write_s(G, "\n");
   generate_block(G, next);
   write_s(G, "RET\n");
@@ -150,6 +165,66 @@ static void generate_integer_expression(GenerateState_T *G, int64_t value) {
   write_s(G, "\n");
 }
 
+/* handles the binary operator '=' */
+static void generate_assignment(GenerateState_T *G, BinaryOpNode_T *exp) {
+  
+  bool is_struct_lhs = exp->left_operand->type == EXP_BINARY &&
+                       exp->left_operand->binop->optype == '.';
+
+  if (exp->left_operand->binop->optype == '.') {
+    
+    const BinaryOpNode_T *memberacc = exp->left_operand->binop; 
+    const Datatype_T *struct_type = memberacc->left_operand->resolved;
+    const char *member_name       = memberacc->right_operand->identval;
+    
+    /* sanity check it's a valid struct member format */
+    assert(struct_type->type == DT_STRUCT);
+    assert(memberacc->right_operand->type == EXP_IDENTIFIER);
+
+    Declaration_T *struct_member = hash_get(struct_type->sdesc->members, member_name);
+    assert(struct_member != NULL);
+
+    /* write! */
+    write_s(G, "SVMBR ");
+    write_int(G, struct_member->struct_index);
+    write_s(G, "\n");
+
+  } else { 
+    write_s(G, "SVLS\n");
+  }
+
+}
+
+/* handles the binary operator '.' */
+static void generate_member_index(GenerateState_T *G, BinaryOpNode_T *exp) {
+  
+  const NodeExpression_T *me = exp->me;
+  bool is_assign = (me->parent &&
+                    me->parent->type == EXP_BINARY &&
+		    me->parent->binop->optype == '=');
+  
+  const Datatype_T *struct_type = exp->left_operand->resolved;
+  const char *member_name       = exp->right_operand->identval;
+  
+  /* sanity check it's a valid struct member format */
+  assert(exp->left_operand->resolved->type == DT_STRUCT);
+  assert(exp->right_operand->type == EXP_IDENTIFIER);
+
+  Declaration_T *struct_member = hash_get(struct_type->sdesc->members, member_name);
+  assert(struct_member != NULL);
+  
+  /* dont dereference! */ 
+  if (is_assign && me->leaf == LEAF_LEFT) {
+    return;
+  }
+
+  write_s(G, "LDMBR ");
+  write_int(G, struct_member->struct_index);
+  write_s(G, "\n"); 
+  
+
+}
+
 /* assumes exp is of type EXP_UNARY */
 static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *exp) {
   generate_expression(G, exp->operand);
@@ -172,8 +247,15 @@ static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) 
     case '/':
       write_s(G, "IDIV\n");
       break;
+    case SPECO_EQ:
+      write_s(G, "ICMP\n");
+      write_s(G, "FEQ\n");
+      break; 
     case '=':
-      write_s(G, "DUP\n");
+      generate_assignment(G, exp);
+      break;
+    case '.':
+      generate_member_index(G, exp);
       break;
     default:
       break;
@@ -183,31 +265,47 @@ static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) 
 /* assumes exp is of type EXP_IDENTIFIER */
 static void generate_identifier_expression(GenerateState_T *G, NodeExpression_T *exp) {
   ASTNode_T *at = G->at;
-
+  
+  bool is_member = (exp->parent &&
+                    exp->parent->type == EXP_BINARY &&
+		    exp->parent->binop->optype == '.' &&
+		    exp->leaf == LEAF_RIGHT);
   bool is_assign = (exp->parent &&
                     exp->parent->type == EXP_BINARY &&
 		    exp->parent->binop->optype == '=');
   bool dont_der = false;
+  
+  /* if it's a member lookup, do nothing.  it's the parent operator's job
+   * to take care of this */
+  if (is_member) {
+    return;
+  }
 
   /* if it's an identifier on the LHS of =, load address */
   dont_der = exp->leaf == LEAF_LEFT && is_assign; 
 
   /* is it a local? */
   Declaration_T *decl = get_local(G->at, exp->identval);
+  
+  if (decl) { 
 
-
-  if (decl && dont_der) {
-    write_s(G, "LEA ");
-    write_int(G, decl->local_index); 
-  } else if (decl && !dont_der) {
-    write_s(G, "LDL "); 
+    /* if don't dereference and it's a local, we're going to
+     * push the variable's local index onto the stack */
+    write_s(G, dont_der ? "IPUSH " : "LDL ");
     write_int(G, decl->local_index);
+    write_s(G, "\n");
   }
 
 }
 
+static void generate_new_expression(GenerateState_T *G, NewNode_T *new) {
+  write_s(G, "ALLOC ");
+  write_s(G, new->dt->type_name);
+  write_s(G, "\n"); 
+}
+
 static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
-  
+ 
   switch (exp->type) {
     case EXP_UNARY:
       generate_unary_expression(G, exp->unop);
@@ -228,6 +326,7 @@ static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
       generate_identifier_expression(G, exp); 
       break;
     case EXP_NEW:
+      generate_new_expression(G, exp->newop);
       break;
     default:
       break;
@@ -288,10 +387,13 @@ GenerateState_T *gen_init(ParseState_T *P, char *outfile) {
 void generate_bytecode(ParseState_T *P, char *outfile) {
   GenerateState_T *G = gen_init(P, outfile);
   determine_local_indices(G);
-  
+
   write_s(G, "JMP __ENTRY__\n");
+
+  hash_foreach(P->usertypes, generate_type_db_map, G);
   generate_block(G, &G->P->root);
+
   write_s(G, "__ENTRY__:\n");
-  write_s(G, "CALL main\n");
+  write_s(G, "CALL main 0\n");
   write_s(G, "HALT\n");
 }

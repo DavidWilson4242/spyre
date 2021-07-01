@@ -200,6 +200,9 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
       case INS_DUP:
 	spyre_push_int(S, spyre_top_int(S));
 	break; 
+      case INS_FEQ:
+	spyre_push_int(S, S->feq);
+	break;
       
       /* debug */
       case INS_IPRINT:
@@ -275,6 +278,11 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
         rawbuf = spymem_rawbuf(S, v2);
         *(uint64_t *)&rawbuf[v0 * sizeof(uint64_t)] = v1;
         break;
+      case INS_SVLS:
+	v0 = spyre_pop_int(S); /* value to save */
+	v1 = spyre_pop_int(S); /* local index to save to */
+	*(size_t *)&S->stack[S->bp + v1*sizeof(uint64_t)] = v0;
+	break;
 
       /* branching */
       case INS_ITEST:
@@ -387,7 +395,8 @@ void spyre_execute_file(const char *fname) {
   }
 
   SpyreState_T *S = spyre_init();
-
+  
+  /* read entire file into buffer */
   uint8_t *buffer;
   unsigned long long flen;
   fseek(infile, 0, SEEK_END);

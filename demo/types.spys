@@ -1,38 +1,23 @@
 JMP __ENTRY__
-
-test2:
-IPUSH 30
-IRET
-
+Test: db"Test"
+Matrix: db"Matrix"
+Vector3: db"Vector3"
 test:
-IPUSH 20
-CALL test2 0
-IADD
-IRET
-
-factorial:
-ARG 0
-IPUSH 1
-ICMP
-JGT __not_base__
-IPUSH 1
-JMP __return__
-__not_base__:
-ARG 0
-ARG 0
-IPUSH 1
-ISUB
-CALL factorial 1
-IMUL
-__return__:
-IRET
-
-main:
-IPUSH 5
-CALL factorial 1
-IPRINT
+RESL 1
 RET
-
+main:
+RESL 1
+IPUSH 0
+ALLOC Vector3
+SVLS
+LDL 0
+ALLOC Test
+SVMBR 1
+LDL 0
+LDMBR 1
+IPUSH 42
+SVMBR 0
+RET
 __ENTRY__:
 CALL main 0
 HALT

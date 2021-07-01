@@ -21,6 +21,7 @@
 
 /* misc */
 #define INS_DUP     0x20
+#define INS_FEQ     0x21
 
 /* local management */
 #define INS_LDL     0x80 /* load local */
@@ -30,6 +31,7 @@
 #define INS_LDMBR   0x84 /* load member of segment on TS*/
 #define INS_SVMBR   0x85 /* save value TS of segment TS-1 member */
 #define INS_ARG     0x86 /* loads argument onto TS */
+#define INS_SVLS    0x87 /* save TS to local at addr [TS-1] */
 
 /* debug */
 #define INS_IPRINT  0x90

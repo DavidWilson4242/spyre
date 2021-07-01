@@ -597,29 +597,34 @@ static NodeExpression_T *empty_expnode(NodeExpressionType_T type, size_t lineno)
       assert(node->binop);
       node->binop->left_operand = NULL;
       node->binop->right_operand = NULL;
+      node->binop->me = node;
       break;
     case EXP_UNARY:
       node->unop = malloc(sizeof(UnaryOpNode_T));
       assert(node->unop);
       node->unop->operand = NULL;
+      node->unop->me = node;
       break;
     case EXP_INDEX:
       node->inop = malloc(sizeof(IndexNode_T));
       assert(node->inop);
       node->inop->array = NULL;
       node->inop->index = NULL;
+      node->inop->me = node;
       break;
     case EXP_CALL:
       node->callop = malloc(sizeof(CallNode_T));
       assert(node->callop);
       node->callop->func = NULL;
       node->callop->args = NULL;
+      node->callop->me = node;
       break;
     case EXP_NEW:
       node->newop = malloc(sizeof(NewNode_T));
       node->newop->dt = NULL;
       node->newop->arrdim = 0;
       node->newop->arrsize = NULL;
+      node->newop->me = node;
       break;
     default:
       break;
@@ -1147,6 +1152,7 @@ static void parse_struct(ParseState_T *P) {
 
   /* insert new members into the struct's member table.  prevent
    * duplicate entries */
+  int index = 0;
   while (!on_string(P, "}", NULL)) {
     member = parse_declaration(P); 
     eat(P, ";");
@@ -1154,6 +1160,7 @@ static void parse_struct(ParseState_T *P) {
       parse_err(P, "duplicate member '%s' in struct '%s'", member->dt->type_name);
     }
     hash_insert(dt->sdesc->members, member->name, member);
+    member->struct_index = index++;
   }
 
   eat(P, "}");

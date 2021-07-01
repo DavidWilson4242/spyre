@@ -1,21 +1,23 @@
+Test: struct {
+  foo: int;
+};
+
 Vector3: struct {
-  x: float;
-  y: float;
-  z: float;
+  x: int;
+  bar: Test;
 }
 
-Matrix: struct {
-  values: float[][];
-}
-
-func test(x: Matrix) -> void {
-
+func factorial(n: int) -> int {
+  if (n <= 1) {
+    return 1;
+  }
+  return n * factorial(n - 1);
 }
 
 func main() -> void {
   
-  x: int;
+  x: Vector3;
 
-  x = 30;
+  factorial(10);
 
 }
