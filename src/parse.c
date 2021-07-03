@@ -1024,17 +1024,20 @@ static void parse_for(ParseState_T *P) {
   eat(P, "(");
   if (on_string(P, ";", NULL)) {
     node->nodefor->init = NULL;
-    eat(P, ";");
   } else {
     mark_operator(P, SPECO_NULL, ';');
     node->nodefor->init = parse_expression(P, node);
-    eat(P, ";");
   }
+  eat(P, ";");
   mark_operator(P, SPECO_NULL, ';');
   node->nodefor->cond = parse_expression(P, node);
   eat(P, ";");
-  mark_operator(P, '(', ')');
-  node->nodefor->incr = parse_expression(P, node);
+  if (on_string(P, ")", NULL)) {
+    node->nodefor->incr = NULL;
+  } else {
+    mark_operator(P, '(', ')');
+    node->nodefor->incr = parse_expression(P, node);
+  }
   eat(P, ")");
   append_node(P, node);
 }
