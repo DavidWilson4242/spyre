@@ -195,8 +195,9 @@ typedef struct ParseState {
   LexToken_T *tok;
   LexToken_T *mark;
   BuiltinTypes_T *builtin;
-  SpyreHash_T *usertypes; /* table of Datatype_T */ 
-  SpyreHash_T *functions; /* table of Declaration_T */
+  SpyreHash_T *usertypes;  /* table of Datatype_T */ 
+  SpyreHash_T *functions;  /* table of Declaration_T */
+  SpyreHash_T *cfunctions; /* table of Declaration_T */
   ASTNode_T *root;
   ASTNode_T *block;
   ASTNode_T *backnode;

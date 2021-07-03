@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <assert.h>
 #include "spyre.h"
 #include "hash.h"
 #include "gc.h"
 #include "memory.h"
+#include "lib_io.h"
 
 /* this file is the meat of the Spyre virtual machine.  It loads a 
  * spyre bytecode file and executes it accordingly. */
@@ -77,12 +79,36 @@ static void init_memory(SpyreState_T *S) {
   spyre_assert(S->memory->allocs);
 }
 
+static void init_libs(SpyreState_T *S) {
+  S->cfuncs = hash_init();
+
+  io_init(S);
+}
+
 static void init_stack(SpyreState_T *S) {
   S->stack = malloc(sizeof(uint8_t) * STACK_INITIAL_CAPACITY);
   spyre_assert(S->stack != NULL);
   S->sp = 0;
   S->ip = 0;
   S->bp = 0;
+}
+
+void spyre_register_cfunc(SpyreState_T *S, const char *name, 
+                          int (*cfunc)(SpyreState_T *)) {
+  
+  if (hash_get(S->cfuncs, name)) {
+    printf("duplicate function %s\n", name);
+    exit(EXIT_FAILURE);
+  }
+
+  SpyreFunction_T *insert = malloc(sizeof(SpyreFunction_T));
+  assert(insert != NULL);
+  insert->name = malloc(strlen(name) + 1);
+  assert(insert->name != NULL);
+  strcpy(insert->name, name);
+  insert->func = cfunc;
+  hash_insert(S->cfuncs, insert->name, insert);
+
 }
 
 static inline int64_t spyre_pop_int(SpyreState_T *S) {
@@ -200,8 +226,22 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
       case INS_DUP:
 	spyre_push_int(S, spyre_top_int(S));
 	break; 
+
+      /* flags */
       case INS_FEQ:
 	spyre_push_int(S, S->feq);
+	break;
+      case INS_FLE:
+	spyre_push_int(S, !S->fgt);
+	break;
+      case INS_FGE:
+	spyre_push_int(S, S->fge);
+	break;
+      case INS_FLT:
+	spyre_push_int(S, !S->fge);
+	break;
+      case INS_FGT:
+	spyre_push_int(S, S->fgt);
 	break;
       
       /* debug */
@@ -361,9 +401,20 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
 	S->bp = S->sp;
 	S->ip = v0;
 	break;
-      case INS_CCALL:
+      case INS_CCALL: {
+	v0 = read_u64(S); /* func name pointer */
+	v1 = read_u64(S); /* num args */
+	
+	SpyreFunction_T *cfunc = hash_get(S->cfuncs, (char *)&S->code[v0]);
+	if (!cfunc) {
+	  printf("unknown C function %s\n", (char *)&S->code[v0]);
+	  exit(EXIT_FAILURE);
+	}
+
+	cfunc->func(S);
 
 	break;
+      }
       case INS_IRET:
 	v0 = spyre_pop_int(S); /* return value */
 	S->sp = S->bp;

@@ -9,6 +9,7 @@ typedef struct GenerateState {
   ASTNode_T *at;
   FILE *outfile;
   size_t lcount;
+  size_t funclabel;
 } GenerateState_T;
 
 void generate_bytecode(ParseState_T *P, char *);

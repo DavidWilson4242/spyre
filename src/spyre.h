@@ -21,7 +21,13 @@
 
 /* misc */
 #define INS_DUP     0x20
-#define INS_FEQ     0x21
+
+/* flags */
+#define INS_FEQ     0x30
+#define INS_FLE     0x31
+#define INS_FGE     0x32
+#define INS_FLT     0x33
+#define INS_FGT     0x34
 
 /* local management */
 #define INS_LDL     0x80 /* load local */
@@ -65,6 +71,8 @@
 #define INS_IRET    0xCF
 #define INS_RET     0xD0
 
+struct SpyreState;
+
 /* at the head of every segment allocation */
 typedef struct MemoryDescriptor {
   char *type_name;
@@ -104,9 +112,15 @@ typedef struct SpyreInternalType {
   SpyreInternalMember_T **members;
 } SpyreInternalType_T;
 
+typedef struct SpyreFunction {
+  char *name;
+  int (*func)(struct SpyreState *);
+} SpyreFunction_T;
+
 typedef struct SpyreState {
   SpyreMemoryMap_T *memory;
   SpyreHash_T *internal_types;
+  SpyreHash_T *cfuncs;
   uint8_t *stack;
   uint8_t *code;
   size_t sp;
@@ -124,6 +138,7 @@ SpyreState_T *spyre_init();
 void spyre_execute_file(const char *);
 void spyre_execute_with_context(const char *, ParseState_T *);
 void spyre_assert(bool);
+void spyre_register_cfunc(SpyreState_T *, const char *, int (*)(SpyreState_T *));
 size_t spyre_local_asptr(SpyreState_T *, size_t);
 SpyreInternalType_T *get_type(SpyreState_T *, const char *);
 

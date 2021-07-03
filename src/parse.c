@@ -37,6 +37,11 @@ typedef struct OperatorDescriptor {
   } optype;
 } OperatorDescriptor_T;
 
+typedef struct ParsedFunctionHeader {
+  Declaration_T *header;
+  Declaration_T *args; 
+} ParsedFunctionHeader_T;
+
 static const OperatorDescriptor_T prec_table[255] = {
   [',']				= {1,  ASSOC_LEFT,  OPERAND_BINARY},
   ['=']				= {2,  ASSOC_RIGHT, OPERAND_BINARY},
@@ -1030,43 +1035,42 @@ static bool should_parse_function(ParseState_T *P) {
   return on_string(P, "func", NULL);
 }
 
-/* syntax:
- * func name(T: arg0, T: arg1, ...) -> T { ... } */
-static void parse_function(ParseState_T *P) {
+static bool should_parse_cfunction(ParseState_T *P) {
+  return on_string(P, "cfunc", NULL);
+}
 
-  if (is_in_func(P)) {
-    parse_err(P, "functions within functions are not permitted");
-  }
+/* expects to be on the token after "func" or "cfunc" */
+static ParsedFunctionHeader_T parse_function_header(ParseState_T *P) {
+  
+  ParsedFunctionHeader_T parsed;
 
   Declaration_T *arg = NULL, *backarg = NULL;
-  ASTNode_T *func = empty_node(NODE_FUNCTION);
-  NodeFunction_T *fnode = func->nodefunc;
+  Declaration_T *header = empty_decl();
 
-  eat(P, "func");
+  /* the function gets its own datatype.. without a name */
+  Datatype_T *dt = make_empty_datatype(NULL);
+  dt->type = DT_FUNCTION;
+  dt->fdesc = malloc(sizeof(FunctionDescriptor_T));
+  assert(dt->fdesc);
+  dt->fdesc->arguments = NULL;
+  dt->fdesc->return_type = NULL;
+  dt->fdesc->nargs = 0;
+  
   if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
-    parse_err(P, "expected identifier to follow token 'func'");
+    parse_err(P, "expected function identifier");
   }
-  fnode->func_name = malloc(strlen(P->tok->as_string) + 1);
-  assert(fnode->func_name);
-  strcpy(fnode->func_name, P->tok->as_string);
-
-  /* function gets a custom datatype WITHOUT a typename. */
-  fnode->dt = make_empty_datatype(NULL);
-  fnode->dt->type = DT_FUNCTION;
-  fnode->dt->fdesc = malloc(sizeof(FunctionDescriptor_T));
-  assert(fnode->dt->fdesc);
-  fnode->dt->fdesc->arguments = NULL;
-  fnode->dt->fdesc->return_type = NULL;
-  fnode->dt->fdesc->nargs = 0;
+  header->name = malloc(strlen(P->tok->as_string) + 1);
+  assert(header->name);
+  strcpy(header->name, P->tok->as_string);
 
   safe_eat(P);
   eat(P, "(");
+  
+
   while (!on_string(P, ")", NULL)) {
     arg = parse_declaration(P);
     if (backarg != NULL) {
       backarg->next = arg;
-    } else {
-      fnode->args = arg;
     }
     if (!on_string(P, ")", NULL) && !on_string(P, ",", NULL)) {
       parse_err(P, "expected ')' or ',' to follow function argument.  Got token '%s'",
@@ -1077,34 +1081,84 @@ static void parse_function(ParseState_T *P) {
     }
 
     /* insert into argument list */
-    if (fnode->dt->fdesc->arguments == NULL) {
-      fnode->dt->fdesc->arguments = arg;
+    if (dt->fdesc->arguments == NULL) {
+      dt->fdesc->arguments = arg;
     } else {
       backarg->next = arg;
     }
 
-    fnode->dt->fdesc->nargs++;
+    dt->fdesc->nargs++;
 
     backarg = arg;
   }
+  
+  /* parse the return value */
   eat(P, ")");
   eat(P, "->");
 
   /* special case for functions... may mark return type as void.  void will
    * only ever be used in this specific context */
   if (on_string(P, "void", NULL)) {
-    fnode->dt->fdesc->return_type = NULL;
+    dt->fdesc->return_type = NULL;
     safe_eat(P);
   } else {
-    fnode->dt->fdesc->return_type = parse_datatype(P);
+    dt->fdesc->return_type = parse_datatype(P);
   }
 
+  header->dt = dt;
+
+  parsed.header = header;
+  parsed.args = arg;
+  
+  return parsed;
+
+}
+
+/* syntax:
+ * cfunc name(arg0: T, arg1: T, ...) -> T; */
+static void parse_cfunction(ParseState_T *P) {
+
+  if (is_in_func(P)) {
+    parse_err(P, "c functions must be declared in the global scope");
+  }
+
+  eat(P, "cfunc");
+
+  ParsedFunctionHeader_T header = parse_function_header(P);
+  Declaration_T *decl = header.header;
+  Declaration_T *args = header.args;
+  
+  /* register C function in context */
+  hash_insert(P->cfunctions, decl->name, decl);
+  
+}
+
+/* syntax:
+ * func name(arg0: T, arg1: T, ...) -> T { ... } */
+static void parse_function(ParseState_T *P) {
+
+  if (is_in_func(P)) {
+    parse_err(P, "functions within functions are not permitted");
+  }
+
+  ASTNode_T *func = empty_node(NODE_FUNCTION);
+  NodeFunction_T *fnode = func->nodefunc;
+
+  eat(P, "func");
+  
+  ParsedFunctionHeader_T header = parse_function_header(P);
+  Declaration_T *decl = header.header;
+  Declaration_T *args = header.args;
+
+  /* copy details into fnode */
+  fnode->func_name = malloc(strlen(decl->name) + 1);
+  assert(fnode->func_name);
+  strcpy(fnode->func_name, decl->name);
+  fnode->dt = decl->dt;
+  fnode->args = args;
+  fnode->rettype = fnode->dt->fdesc->return_type;
+
   /* register function in table */
-  Declaration_T *decl = empty_decl();
-  decl->name = malloc(strlen(fnode->func_name) + 1);
-  assert(decl->name);
-  strcpy(decl->name, fnode->func_name);
-  decl->dt = fnode->dt; /* TODO SHOULD DEEPCOPY AND CLAIM OWNERSHIP */
   hash_insert(P->functions, decl->name, decl);
 
   append_node(P, func);
@@ -1216,6 +1270,7 @@ static ParseState_T *init_parsestate(LexState_T *L) {
 
   /* init default functions */
   P->functions = hash_init();
+  P->cfunctions = hash_init();
 
   /* init abstract syntax tree with just a root.
    * the root is just a block, essentially parsing 
@@ -1249,6 +1304,8 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_return(P);
     } else if (should_parse_function(P)) {
       parse_function(P);
+    } else if (should_parse_cfunction(P)) {
+      parse_cfunction(P);
     } else if (should_parse_block(P)) {
       parse_block(P);
     } else if (should_leave_block(P)) {

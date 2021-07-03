@@ -1,11 +1,4 @@
-Test: struct {
-  foo: int;
-};
-
-Vector3: struct {
-  x: int;
-  bar: Test;
-}
+cfunc print() -> void;
 
 func factorial(n: int) -> int {
   if (n <= 1) {
@@ -16,8 +9,7 @@ func factorial(n: int) -> int {
 
 func main() -> void {
   
-  x: Vector3;
-
-  factorial(10);
+    factorial(5);
+    print();
 
 }

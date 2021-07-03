@@ -94,6 +94,11 @@ static Declaration_T *decl_from_identifier(ParseState_T *P, NodeExpression_T *no
 
   /* search for function in registered functions */
   search = hash_get(P->functions, node->identval);
+  
+  /* search for cfunction in registered functions */
+  if (!search) {
+    search = hash_get(P->cfunctions, node->identval);
+  }
 
   return search;
 }

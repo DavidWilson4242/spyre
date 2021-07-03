@@ -8,6 +8,7 @@
 static void generate_function(GenerateState_T *, ASTNode_T **);
 static void generate_block(GenerateState_T *, ASTNode_T **);
 static void generate_if(GenerateState_T *, ASTNode_T **);
+static void generate_return(GenerateState_T *, ASTNode_T **);
 
 /* expression generation */
 static void generate_type_db(GenerateState_T *G, const Datatype_T *);
@@ -17,6 +18,7 @@ static void generate_unary_expression(GenerateState_T *G, UnaryOpNode_T *);
 static void generate_integer_expression(GenerateState_T *G, int64_t); 
 static void generate_assignment(GenerateState_T *G, BinaryOpNode_T *);
 static void generate_member_index(GenerateState_T *G, BinaryOpNode_T *);
+static void generate_call(GenerateState_T *G, CallNode_T *);
 
 /* helper function for determine_local_indices.  recursively determines the local index
  * of function arguments, as well as local variables inside of blocks. 
@@ -63,6 +65,10 @@ static void determine_local_indices(GenerateState_T *G) {
       assign_local_indices(G, a, 0);
     }
   }
+}
+
+static NodeFunction_T *get_function(GenerateState_T *G, const char *ident) {
+  return hash_get(G->P->functions, ident);
 }
 
 /* attempts to find a local variable in the current generation context */
@@ -132,13 +138,40 @@ static void generate_type_db_map(const char *key, void *value, void *cl) {
 }
 
 static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
+
   ASTNode_T *func = *funcp;
   ASTNode_T **next = &func->next;
+  NodeFunction_T *funcnode = func->nodefunc;
+  
+  /* write function label */
+  size_t retlabel = G->lcount++;
+  G->funclabel = retlabel;
   write_s(G, func->nodefunc->func_name); 
-  write_s(G, ":\nRESL ");
+  write_s(G, ":\n");
+
+  /* reserve local space */
+  write_s(G, "RESL ");
   write_int(G, func->nodefunc->stack_space/8);
   write_s(G, "\n");
+
+  /* load arguments onto stack and save as locals */
+  for (Declaration_T *arg = funcnode->args; arg != NULL; arg = arg->next) {
+    write_s(G, "ARG ");
+    write_int(G, arg->local_index);
+    write_s(G, "\nSVL ");
+    write_int(G, arg->local_index);
+    write_s(G, "\n");
+  }
+
   generate_block(G, next);
+  write_label(G, retlabel);
+  write_s(G, "\n");
+
+  /* RET vs. IRET? */
+  if (funcnode->dt->fdesc->return_type) {
+    write_s(G, "I");
+  }
+
   write_s(G, "RET\n");
   *funcp = (*funcp)->next;
 }
@@ -157,6 +190,18 @@ static void generate_if(GenerateState_T *G, ASTNode_T **ifp) {
   write_label(G, neglbl);
   write_s(G, "\n");
   *ifp = (*ifp)->next;
+}
+
+static void generate_return(GenerateState_T *G, ASTNode_T **retp) {
+  NodeReturn_T *retnode = (*retp)->noderet;
+
+  if (retnode->retval) {
+    generate_expression(G, retnode->retval); 
+  }
+
+  write_s(G, "JMP ");
+  write_label_ref(G, G->funclabel);
+  write_s(G, "\n");
 }
 
 static void generate_integer_expression(GenerateState_T *G, int64_t value) {
@@ -250,6 +295,22 @@ static void generate_binary_expression(GenerateState_T *G, BinaryOpNode_T *exp) 
     case SPECO_EQ:
       write_s(G, "ICMP\n");
       write_s(G, "FEQ\n");
+      break;
+    case SPECO_LE:
+      write_s(G, "ICMP\n");
+      write_s(G, "FLE\n");
+      break;
+    case SPECO_GE:
+      write_s(G, "ICMP\n");
+      write_s(G, "FGE\n");
+      break;
+    case '<':
+      write_s(G, "ICMP\n");
+      write_s(G, "FLT\n");
+      break;
+    case '>':
+      write_s(G, "ICMP\n");
+      write_s(G, "FGT\n");
       break; 
     case '=':
       generate_assignment(G, exp);
@@ -304,8 +365,26 @@ static void generate_new_expression(GenerateState_T *G, NewNode_T *new) {
   write_s(G, "\n"); 
 }
 
+static void generate_call(GenerateState_T *G, CallNode_T *call) {
+  
+  generate_expression(G, call->func); 
+  generate_expression(G, call->args);
+  
+  /* TODO function pointers */
+  if (call->func->type == EXP_IDENTIFIER) {
+    NodeFunction_T *func = get_function(G, call->func->identval);
+    assert(func != NULL);
+    write_s(G, "CALL ");
+    write_s(G, func->func_name);
+    write_s(G, " ");
+    write_int(G, func->dt->fdesc->nargs);
+    write_s(G, "\n");
+  }
+
+}
+
 static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
- 
+  
   switch (exp->type) {
     case EXP_UNARY:
       generate_unary_expression(G, exp->unop);
@@ -319,6 +398,7 @@ static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
     case EXP_INDEX:
       break;
     case EXP_CALL:
+      generate_call(G, exp->callop);
       break;
     case EXP_FLOAT:
       break;
@@ -353,6 +433,7 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
         generate_expression(G, c->nodeexp);
         break;
       case NODE_RETURN:
+	generate_return(G, &c);
 	break;
       case NODE_CONTINUE:
 	break;
