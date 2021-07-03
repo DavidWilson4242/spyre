@@ -1,5 +1,10 @@
 cfunc print(n: int) -> void;
 
+Vector2: struct {
+  x: int;
+  y: int;
+};
+
 func factorial(n: int) -> int {
   if (n <= 1) {
     return 1;
@@ -16,7 +21,12 @@ func fib(n: int) -> int {
 
 func main() -> void {
   
-    print(factorial(5));
-    print(fib(6));
+  v: Vector2;
+  v = new Vector2;
+  v.x = 5;
+  v.y = 6;
+
+  print(factorial(v.x));
+  print(fib(v.y));
 
 }

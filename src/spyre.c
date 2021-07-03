@@ -401,19 +401,19 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
 	S->bp = S->sp;
 	S->ip = v0;
 	break;
-  case INS_CCALL: {
-    v0 = read_u64(S); /* func name pointer */
-    v1 = read_u64(S); /* num args */
+      case INS_CCALL: {
+	v0 = read_u64(S); /* func name pointer */
+	v1 = read_u64(S); /* num args */
 
-    SpyreFunction_T *cfunc = hash_get(S->cfuncs, (char *)&S->code[v0]);
-    if (!cfunc) {
-      printf("unknown C function %s\n", (char *)&S->code[v0]);
-      exit(EXIT_FAILURE);
-    }
+	SpyreFunction_T *cfunc = hash_get(S->cfuncs, (char *)&S->code[v0]);
+	if (!cfunc) {
+	  printf("unknown C function %s!\n", (char *)&S->code[v0]);
+	  exit(EXIT_FAILURE);
+	}
     
-    cfunc->func(S);
+	cfunc->func(S);
 
-    break;
+	break;
       }
       case INS_IRET:
 	v0 = spyre_pop_int(S); /* return value */

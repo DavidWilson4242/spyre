@@ -392,6 +392,7 @@ static void read_string_literal(LexState_T *L) {
   litbuf = malloc(buflen + 1);
   assert(litbuf);
   strncpy(litbuf, &L->contents[start_index], buflen);
+  litbuf[buflen] = 0;
 
   make_token(L, TOKEN_STRING_LITERAL, litbuf);
 

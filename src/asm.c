@@ -247,6 +247,7 @@ static AssembleState_T *asmstate_init(const char *infile, const char *outfile) {
   }
   A->labels = hash_init();
   A->at = A->L->tokens;
+  A->pending = NULL;
 
   A->writebuf = malloc(sizeof(uint8_t) * INITIAL_BUFFER_SIZE);
   A->sizebuf = INITIAL_BUFFER_SIZE;
