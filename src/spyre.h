@@ -140,6 +140,7 @@ void spyre_execute_with_context(const char *, ParseState_T *);
 void spyre_assert(bool);
 void spyre_register_cfunc(SpyreState_T *, const char *, int (*)(SpyreState_T *));
 size_t spyre_local_asptr(SpyreState_T *, size_t);
+int64_t spyre_pop_int(SpyreState_T *S);
 SpyreInternalType_T *get_type(SpyreState_T *, const char *);
 
 #endif

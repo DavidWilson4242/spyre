@@ -1065,7 +1065,6 @@ static ParsedFunctionHeader_T parse_function_header(ParseState_T *P) {
 
   safe_eat(P);
   eat(P, "(");
-  
 
   while (!on_string(P, ")", NULL)) {
     arg = parse_declaration(P);
@@ -1130,7 +1129,7 @@ static void parse_cfunction(ParseState_T *P) {
   
   /* register C function in context */
   hash_insert(P->cfunctions, decl->name, decl);
-  
+
 }
 
 /* syntax:

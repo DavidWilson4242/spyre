@@ -1,4 +1,4 @@
-cfunc print() -> void;
+cfunc print(n: int) -> void;
 
 func factorial(n: int) -> int {
   if (n <= 1) {
@@ -9,7 +9,6 @@ func factorial(n: int) -> int {
 
 func main() -> void {
   
-    factorial(5);
-    print();
+    print(factorial(5));
 
 }

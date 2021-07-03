@@ -1,6 +1,6 @@
 CC = gcc
 CF = -std=c11 -Wno-format -g -O2 -Wno-unused-result
-COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o build/gen.o build/typecheck.o
+COMPILE_OBJ = build/main.o build/lex.o build/parse.o build/hash.o build/gc.o build/asm.o build/spyre.o build/memory.o build/gen.o build/typecheck.o build/lib_io.o
 
 clean:
 	rm -Rf build/*.o
@@ -40,3 +40,6 @@ build/gen.o:
 
 build/typecheck.o:
 	$(CC) $(CF) -c src/typecheck.c -o build/typecheck.o
+
+build/lib_io.o:
+	$(CC) $(CF) -c src/lib_io.c -o build/lib_io.o

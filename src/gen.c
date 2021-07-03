@@ -137,6 +137,18 @@ static void generate_type_db_map(const char *key, void *value, void *cl) {
   generate_type_db((GenerateState_T *)cl, (const Datatype_T *)value);
 }
 
+static void generate_cfunc_db(GenerateState_T *G, const Declaration_T *decl) {
+  write_s(G, decl->name);
+  write_s(G, ": db");
+  write_s(G, "\"");
+  write_s(G, decl->name);
+  write_s(G, "\"\n");
+}
+
+static void generate_cfunc_db_map(const char *key, void *value, void *cl) {
+  generate_cfunc_db((GenerateState_T *)cl, (const Declaration_T *)value);
+}
+
 static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
 
   ASTNode_T *func = *funcp;
@@ -366,24 +378,39 @@ static void generate_new_expression(GenerateState_T *G, NewNode_T *new) {
 }
 
 static void generate_call(GenerateState_T *G, CallNode_T *call) {
-  
+
   generate_expression(G, call->func); 
   generate_expression(G, call->args);
   
   /* TODO function pointers */
   if (call->func->type == EXP_IDENTIFIER) {
+    bool is_cfunc = false;
     NodeFunction_T *func = get_function(G, call->func->identval);
-    assert(func != NULL);
-    write_s(G, "CALL ");
-    write_s(G, func->func_name);
-    write_s(G, " ");
-    write_int(G, func->dt->fdesc->nargs);
-    write_s(G, "\n");
+    if (func) {
+      assert(func != NULL);
+      write_s(G, "CALL ");
+      write_s(G, func->func_name);
+      write_s(G, " ");
+      write_int(G, func->dt->fdesc->nargs);
+      write_s(G, "\n");
+    } else {
+      Declaration_T *cfunc = hash_get(G->P->cfunctions, call->func->identval);
+      assert(cfunc != NULL);
+      write_s(G, "CCALL ");
+      write_s(G, cfunc->name);
+      write_s(G, " ");
+      write_int(G, cfunc->dt->fdesc->nargs);
+      write_s(G, "\n");
+    }
   }
 
 }
 
 static void generate_expression(GenerateState_T *G, NodeExpression_T *exp) {
+
+  if (exp == NULL) {
+    return;
+  }
   
   switch (exp->type) {
     case EXP_UNARY:
@@ -433,14 +460,14 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
         generate_expression(G, c->nodeexp);
         break;
       case NODE_RETURN:
-	generate_return(G, &c);
-	break;
+        generate_return(G, &c);
+        break;
       case NODE_CONTINUE:
-	break;
+        break;
       case NODE_INCLUDE:
-	break;
+        break;
       case NODE_DECLARATION:
-	break;
+        break;
       default:
         break;
     }
@@ -472,9 +499,11 @@ void generate_bytecode(ParseState_T *P, char *outfile) {
   write_s(G, "JMP __ENTRY__\n");
 
   hash_foreach(P->usertypes, generate_type_db_map, G);
+  hash_foreach(P->cfunctions, generate_cfunc_db_map, G);
   generate_block(G, &G->P->root);
 
   write_s(G, "__ENTRY__:\n");
   write_s(G, "CALL main 0\n");
   write_s(G, "HALT\n");
+  fclose(G->outfile);
 }

@@ -111,7 +111,7 @@ void spyre_register_cfunc(SpyreState_T *S, const char *name,
 
 }
 
-static inline int64_t spyre_pop_int(SpyreState_T *S) {
+int64_t spyre_pop_int(SpyreState_T *S) {
   S->sp -= sizeof(int64_t);
   return *(int64_t *)&S->stack[S->sp];
 }
@@ -401,19 +401,19 @@ static void spyre_execute(SpyreState_T *S, uint8_t *bytecode) {
 	S->bp = S->sp;
 	S->ip = v0;
 	break;
-      case INS_CCALL: {
-	v0 = read_u64(S); /* func name pointer */
-	v1 = read_u64(S); /* num args */
-	
-	SpyreFunction_T *cfunc = hash_get(S->cfuncs, (char *)&S->code[v0]);
-	if (!cfunc) {
-	  printf("unknown C function %s\n", (char *)&S->code[v0]);
-	  exit(EXIT_FAILURE);
-	}
+  case INS_CCALL: {
+    v0 = read_u64(S); /* func name pointer */
+    v1 = read_u64(S); /* num args */
 
-	cfunc->func(S);
+    SpyreFunction_T *cfunc = hash_get(S->cfuncs, (char *)&S->code[v0]);
+    if (!cfunc) {
+      printf("unknown C function %s\n", (char *)&S->code[v0]);
+      exit(EXIT_FAILURE);
+    }
+    
+    cfunc->func(S);
 
-	break;
+    break;
       }
       case INS_IRET:
 	v0 = spyre_pop_int(S); /* return value */
@@ -527,6 +527,26 @@ void spyre_execute_with_context(const char *fname, ParseState_T *P) {
   hash_foreach(usertypes, map_register_type, S);
   hash_foreach(usertypes, map_register_all_members, S);
 
+  FILE *infile = fopen(fname, "rb");
+  if (infile == NULL) {
+    fprintf(stderr, "couldn't open '%s' for reading\n", fname);
+    exit(EXIT_FAILURE);
+  }
+
+  /* read entire file into buffer */
+  uint8_t *buffer;
+  unsigned long long flen;
+  fseek(infile, 0, SEEK_END);
+  flen = ftell(infile);
+  fseek(infile, 0, SEEK_SET);
+  buffer = malloc(flen);
+  spyre_assert(buffer != NULL);
+  fread(buffer, 1, flen, infile);
+  spyre_execute(S, buffer);
+  free(buffer);
+
+  spygc_execute(S);
+
 }
 
 SpyreState_T *spyre_init() {
@@ -535,6 +555,7 @@ SpyreState_T *spyre_init() {
   spyre_assert(S != NULL);
 
   init_memory(S);
+  init_libs(S);
   init_stack(S);
   init_types(S);
 
