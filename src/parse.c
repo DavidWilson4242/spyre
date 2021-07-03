@@ -200,6 +200,8 @@ static ASTNode_T *empty_node(ASTNodeType_T type) {
       node->nodeexp = calloc(1, sizeof(NodeExpression_T));
       break;
     case NODE_FOR:
+      node->nodefor = calloc(1, sizeof(NodeFor_T));
+      break;
     case NODE_FUNCTION:
       node->nodefunc = calloc(1, sizeof(NodeFunction_T));
       break;
@@ -674,14 +676,12 @@ static NodeExpression_T *parse_expression(ParseState_T *P, ASTNode_T *nodeparent
 
         /* 'new' is a special case identifier */
         if (on_string(P, "new", NULL)) {
-          printf("AAAA\n");
           safe_eat(P);
           oldmark = P->mark;
           node = parse_new_datatype(P, nodeparent);
           /* mark gets mutated... */
           P->mark = oldmark;
           expstack_push(&postfix, node);
-          printf("BBB\n");
         } else {
           
           node = empty_expnode(EXP_IDENTIFIER, t->lineno);
@@ -1014,6 +1014,31 @@ static void parse_return(ParseState_T *P) {
   append_node(P, node);
 }
 
+static bool should_parse_for(ParseState_T *P) {
+  return on_string(P, "for", NULL);
+}
+
+static void parse_for(ParseState_T *P) {
+  ASTNode_T *node = empty_node(NODE_FOR);
+  eat(P, "for");
+  eat(P, "(");
+  if (on_string(P, ";", NULL)) {
+    node->nodefor->init = NULL;
+    eat(P, ";");
+  } else {
+    mark_operator(P, SPECO_NULL, ';');
+    node->nodefor->init = parse_expression(P, node);
+    eat(P, ";");
+  }
+  mark_operator(P, SPECO_NULL, ';');
+  node->nodefor->cond = parse_expression(P, node);
+  eat(P, ";");
+  mark_operator(P, '(', ')');
+  node->nodefor->incr = parse_expression(P, node);
+  eat(P, ")");
+  append_node(P, node);
+}
+
 static bool should_parse_while(ParseState_T *P) {
   return on_string(P, "while", NULL);
 }
@@ -1299,6 +1324,8 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_if(P);
     } else if (should_parse_while(P)) {
       parse_while(P);
+    } else if (should_parse_for(P)) {
+      parse_for(P);
     } else if (should_parse_return(P)) { 
       parse_return(P);
     } else if (should_parse_function(P)) {

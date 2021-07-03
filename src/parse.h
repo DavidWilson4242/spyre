@@ -151,6 +151,12 @@ typedef struct NodeWhile {
   NodeExpression_T *cond;
 } NodeWhile_T;
 
+typedef struct NodeFor {
+  NodeExpression_T *init;
+  NodeExpression_T *cond;
+  NodeExpression_T *incr;
+} NodeFor_T;
+
 typedef struct NodeIf {
   NodeExpression_T *cond;
 } NodeIf_T;
@@ -182,6 +188,7 @@ typedef struct ASTNode {
   union {
     NodeIf_T         *nodeif;
     NodeWhile_T      *nodewhile;
+    NodeFor_T        *nodefor;
     NodeExpression_T *nodeexp;
     NodeBlock_T      *nodeblock;
     NodeReturn_T     *noderet;

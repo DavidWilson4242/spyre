@@ -8,6 +8,7 @@
 static void generate_function(GenerateState_T *, ASTNode_T **);
 static void generate_block(GenerateState_T *, ASTNode_T **);
 static void generate_if(GenerateState_T *, ASTNode_T **);
+static void generate_while(GenerateState_T *, ASTNode_T **);
 static void generate_return(GenerateState_T *, ASTNode_T **);
 
 /* expression generation */
@@ -186,6 +187,53 @@ static void generate_function(GenerateState_T *G, ASTNode_T **funcp) {
 
   write_s(G, "RET\n");
   *funcp = (*funcp)->next;
+}
+
+static void generate_while(GenerateState_T *G, ASTNode_T **whilep) {
+  size_t top_label = G->lcount++;
+  size_t bot_label = G->lcount++;
+  ASTNode_T *node = *whilep;
+  ASTNode_T **next = &node->next;
+  write_label(G, top_label);
+  write_s(G, "\n");
+  generate_expression(G, node->nodewhile->cond);
+  write_s(G, "ITEST\n");
+  write_s(G, "JZ ");
+  write_label_ref(G, bot_label);
+  write_s(G, "\n");
+  generate_block(G, next);
+  write_s(G, "JMP ");
+  write_label_ref(G, top_label);
+  write_s(G, "\n");
+  write_label(G, bot_label);
+  write_s(G, "\n");
+  *whilep = (*whilep)->next;
+} 
+
+static void generate_for(GenerateState_T *G, ASTNode_T **forp) {
+  size_t top_label = G->lcount++;
+  size_t bot_label = G->lcount++;
+  ASTNode_T *node = *forp;
+  ASTNode_T **next = &node->next;
+  if (node->nodefor->init) {
+    generate_expression(G, node->nodefor->init);
+  }
+  write_label(G, top_label);
+  write_s(G, "\n");
+  generate_expression(G, node->nodefor->cond);
+  write_s(G, "ITEST\n");
+  write_s(G, "JZ ");
+  write_label_ref(G, bot_label);
+  write_s(G, "\n");
+  generate_block(G, next);
+  if (node->nodefor->incr) {
+    generate_expression(G, node->nodefor->incr);
+  }
+  write_s(G, "JMP ");
+  write_label_ref(G, top_label);
+  write_s(G, "\n");
+  write_label(G, bot_label);
+  write_s(G, "\n");
 }
 
 static void generate_if(GenerateState_T *G, ASTNode_T **ifp) {
@@ -455,6 +503,12 @@ static void generate_block(GenerateState_T *G, ASTNode_T **blockp) {
         break;
       case NODE_IF:
         generate_if(G, &c);
+        break;
+      case NODE_FOR:
+        generate_for(G, &c);
+        break;
+      case NODE_WHILE:
+        generate_while(G, &c);
         break;
       case NODE_EXPRESSION:
         generate_expression(G, c->nodeexp);
