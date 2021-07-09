@@ -27,5 +27,10 @@ make spyre
 
 <h3>Compilation steps, ordered<h3>
 <ul>
-  <li>Lexer</li>
-    Test
+  <li>Lex</li>
+  <li>Parse</li>
+  <li>Typecheck</li>
+  <li>Generate</li>
+  <li>Assemble</li>
+  <li>Execute</li>
+</ul>
