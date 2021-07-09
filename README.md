@@ -17,7 +17,7 @@ make spyre
 
 <h3>Usage</h3>
 <h4>Compiling</h4>
-<pre><code>spyre -c inputfile.spy -o outputfile.spyb</code></pre>
+<pre><code>spyre -c inputfile.spy -o outputfile.spys</code></pre>
 <h4>Assembling from instruction file</h4>
 <pre><code>spyre -a inputfile.spys -o outputfile.spyb</code></pre>
 <h4>Running from bytecode</h4>
