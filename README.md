@@ -25,9 +25,10 @@ make spyre
 <h4>Just run my code!</h4>
 <pre><code>spyre inputfile.spy</code></pre>
 
-<h3>Compilation steps, ordered<h3>
+<h3>Compilation Steps</h3>
 <ul>
   <li>Lex</li>
+  <ul><li>Convert input file into a list of tokens</li></ul>
   <li>Parse</li>
   <li>Typecheck</li>
   <li>Generate</li>
