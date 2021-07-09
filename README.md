@@ -30,8 +30,13 @@ make spyre
   <li>Lex</li>
   <ul><li>Convert input file into a list of tokens</li></ul>
   <li>Parse</li>
+  <ul><li>Convert tokens into an abstract syntax tree (AST), validate syntax</li></ul>
   <li>Typecheck</li>
+  <ul><li>Resolve types of every expression, ensure no type mistakes</li></ul>
   <li>Generate</li>
+  <ul><li>Create an assembly file of Spyre instructions from the AST</li></ul>
   <li>Assemble</li>
+  <ul><li>Convert assembly file into raw bytecode that the interpreter can understand</li></ul>
   <li>Execute</li>
+  <ul><li>Load libraries, init virtual machine, execute raw bytecode</li></ul>
 </ul>
