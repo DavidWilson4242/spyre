@@ -24,3 +24,8 @@ make spyre
 <pre><code>spyre -r inputfile.spyb</code></pre>
 <h4>Just run my code!</h4>
 <pre><code>spyre inputfile.spy</code></pre>
+
+<h3>Compilation steps, ordered<h3>
+<ul>
+  <li>Lexer</li>
+    Test
