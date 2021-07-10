@@ -1078,9 +1078,9 @@ static bool should_parse_cfunction(ParseState_T *P) {
 }
 
 /* expects to be on the token after "method" */
-static ParsedStructHeader_T parse_method_header(ParseState_T *P) {
+static ParsedMethodHeader_T parse_method_header(ParseState_T *P) {
   
-  ParsedStructHeader_T parsed;
+  ParsedMethodHeader_T parsed;
   const Datatype_T *struct_type;
   const char *struct_name;
 
@@ -1312,20 +1312,58 @@ static void parse_function(ParseState_T *P) {
  * method StructName.name(arg0: T, arg1: T, ...) -> T { ... };
  */
 static void parse_method(ParseState_T *P) {
-  
+
   if (is_in_func(P)) {
-    parse_err(P, "methods with functions are not permitted");
+    parse_err(P, "methods within functions are not permitted");
   }
 
   ASTNode_T *func = empty_node(NODE_FUNCTION);
-  func->is_method = true;
+  NodeFunction_T *fnode = func->nodefunc;
 
   eat(P, "method");
 
-  ParsedStructHeader_T header = parse_method_header(P);
+  if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
+    parse_err(P, "expected struct name to follow token 'method'");
+  }
+
+  const char *struct_name = P->tok->as_string;
+  safe_eat(P);
+  eat(P, ".");
+
+  ParsedFunctionHeader_T header = parse_function_header(P);
   Declaration_T *decl = header.header;
   Declaration_T *args = header.args;
-  const char *struct_name = header.struct_name;
+
+  /* find struct parent */
+  Datatype_T *struct_parent = hash_get(P->usertypes, struct_name);
+  if (struct_parent == NULL) {
+    parse_err(P, "unknown struct '%s'", struct_name);
+  }
+
+  /* copy details into fnode */
+  fnode->is_method = true;
+  fnode->struct_parent = struct_parent;
+  fnode->func_name = malloc(strlen(decl->name) + 1);
+  assert(fnode->func_name);
+  strcpy(fnode->func_name, decl->name);
+  fnode->dt = decl->dt;
+  fnode->args = args;
+  fnode->rettype = fnode->dt->fdesc->return_type;
+
+  /* register function in table */
+  hash_insert(struct_parent->sdesc->methods, decl->name, decl);
+
+  append_node(P, func);
+
+  /* optionally, user may use the syntax
+   * func name(...) -> T = <retval expression>
+   * notice that we append the node before this case, so that
+   * its arguments can be referenced by the expression */
+  if (on_string(P, "=", NULL)) {
+    eat(P, "=");
+    mark_operator(P, SPECO_NULL, ';');
+    fnode->special_ret = parse_expression(P, func); 
+  }
 
 }
 
@@ -1373,7 +1411,7 @@ static void parse_struct(ParseState_T *P) {
       eat(P, ";");
 
       if (hash_get(dt->sdesc->methods, header.header->name) != NULL) {
-	parse_err(P, "duplicate method '%s' in struct '%s'", header.header->name, struct_name); 
+        parse_err(P, "duplicate method '%s' in struct '%s'", header.header->name, struct_name); 
       }
       hash_insert(dt->sdesc->methods, header.header->name, header.header);
 
@@ -1382,7 +1420,7 @@ static void parse_struct(ParseState_T *P) {
       member = parse_declaration(P); 
       eat(P, ";");
       if (hash_get(dt->sdesc->members, member->name) != NULL) {
-	parse_err(P, "duplicate member '%s' in struct '%s'", member->name, struct_name);
+        parse_err(P, "duplicate member '%s' in struct '%s'", member->name, struct_name);
       }
       hash_insert(dt->sdesc->members, member->name, member);
       member->struct_index = index++;

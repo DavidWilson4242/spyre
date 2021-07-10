@@ -4,12 +4,11 @@ Vector3: struct {
   y: int;
   z: int;
   
-  method Sum() -> int;
+  method Sum() -> void;
 
 };
 
-method Vector3.Sum() -> int {
-  return self.x + self.y + self.z;
+method Vector3.Sum() -> void {
 }
 
 func main() -> void {
@@ -17,7 +16,5 @@ func main() -> void {
   v: Vector3;
   v = new Vector3;
   
-  print(v.Sum());
-
 
 }

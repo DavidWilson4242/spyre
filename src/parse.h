@@ -175,7 +175,7 @@ typedef struct NodeReturn {
 typedef struct NodeFunction {
   char *func_name;
   bool is_method;
-  char *struct_parent;
+  Datatype_T *struct_parent;
   Datatype_T *dt;
   Declaration_T *args;
   NodeExpression_T *special_ret;
