@@ -1,21 +1,23 @@
-cfunc print(n: int) -> void;
+Vector3: struct {
+  
+  x: int;
+  y: int;
+  z: int;
+  
+  method Sum() -> int;
 
-func fib(n: int) -> int {
-  if (n <= 1) {
-    return 1;
-  }
-  return fib(n - 1) + fib(n - 2);
+};
+
+method Vector3.Sum() -> int {
+  return self.x + self.y + self.z;
 }
 
 func main() -> void {
-
-  x: int;
-  y: int;
   
-  for (x = 0; x < 4; x = x + 1) {
-    for (y = 0; y < 4; y = y + 1) {
-      print(x + y);
-    }
-  }
+  v: Vector3;
+  v = new Vector3;
+  
+  print(v.Sum());
+
 
 }

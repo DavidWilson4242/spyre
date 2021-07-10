@@ -42,6 +42,12 @@ typedef struct ParsedFunctionHeader {
   Declaration_T *args; 
 } ParsedFunctionHeader_T;
 
+typedef struct ParsedMethodHeader {
+  Declaration_T *header;
+  Declaration_T *args;
+  char *struct_name;
+} ParsedMethodHeader_T;
+
 static const OperatorDescriptor_T prec_table[255] = {
   [',']				= {1,  ASSOC_LEFT,  OPERAND_BINARY},
   ['=']				= {2,  ASSOC_RIGHT, OPERAND_BINARY},
@@ -1059,12 +1065,112 @@ static void parse_while(ParseState_T *P) {
   append_node(P, node);
 }
 
+static bool should_parse_method(ParseState_T *P) {
+  return on_string(P, "method", NULL);
+}
+
 static bool should_parse_function(ParseState_T *P) {
   return on_string(P, "func", NULL);
 }
 
 static bool should_parse_cfunction(ParseState_T *P) {
   return on_string(P, "cfunc", NULL);
+}
+
+/* expects to be on the token after "method" */
+static ParsedStructHeader_T parse_method_header(ParseState_T *P) {
+  
+  ParsedStructHeader_T parsed;
+  const Datatype_T *struct_type;
+  const char *struct_name;
+
+  Declaration_T *arg = NULL, *backarg = NULL;
+  Declaration_T *header = empty_decl();
+
+  if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
+    parse_err(P, "expected name of struct");
+  } 
+  struct_name = P->tok->as_string;
+  struct_type = hash_get(P->usertypes, struct_name);
+
+  /* ensure the struct exists */
+  if (struct_type == NULL) {
+    parse_err(P, "unknown struct type '%s'", struct_name);
+  }
+
+  /* create function datatype */
+  Datatype_T *dt = make_empty_datatype(NULL);
+  dt->type = DT_FUNCTION;
+  dt->fdesc = malloc(sizeof(FunctionDescriptor_T));
+  assert(dt->fdesc);
+  dt->fdesc->arguments = NULL;
+  dt->fdesc->return_type = NULL;
+  dt->fdesc->nargs = 0;
+
+  /* copy over struct name */
+  parsed.struct_name = malloc(strlen(struct_name) + 1);
+  assert(parsed.struct_name != NULL);
+  strcpy(parsed.struct_name, struct_name);
+  
+  safe_eat(P);
+  eat(P, ".");
+
+  /* read method name */
+  if (!on_type(P, TOKEN_IDENTIFIER, NULL)) {
+    parse_err(P, "expected name of method");
+  } 
+  header->name = malloc(strlen(P->tok->as_string) + 1);
+  assert(header->name);
+  strcpy(header->name, P->tok->as_string);
+
+  safe_eat(P);
+
+  /* todo modularize.  this code is the same as parsing a function header */
+  while (!on_string(P, ")", NULL)) {
+    arg = parse_declaration(P);
+    if (backarg != NULL) {
+      backarg->next = arg;
+    }
+    if (!on_string(P, ")", NULL) && !on_string(P, ",", NULL)) {
+      parse_err(P, "expected ')' or ',' to follow function argument.  Got token '%s'",
+          P->tok->as_string);
+    }
+    if (on_string(P, ",", NULL)) {
+      safe_eat(P);
+    }
+
+    /* insert into argument list */
+    if (dt->fdesc->arguments == NULL) {
+      dt->fdesc->arguments = arg;
+    } else {
+      backarg->next = arg;
+    }
+
+    dt->fdesc->nargs++;
+
+    backarg = arg;
+  }
+  
+  /* parse the return value */
+  eat(P, ")");
+  eat(P, "->");
+
+  /* special case for functions... may mark return type as void.  void will
+   * only ever be used in this specific context */
+  if (on_string(P, "void", NULL)) {
+    dt->fdesc->return_type = NULL;
+    safe_eat(P);
+  } else {
+    dt->fdesc->return_type = parse_datatype(P);
+  }
+
+  header->dt = dt;
+
+  parsed.header = header;
+  parsed.args = arg;
+
+  return parsed;
+
 }
 
 /* expects to be on the token after "func" or "cfunc" */
@@ -1202,6 +1308,27 @@ static void parse_function(ParseState_T *P) {
 
 }
 
+/* syntax:
+ * method StructName.name(arg0: T, arg1: T, ...) -> T { ... };
+ */
+static void parse_method(ParseState_T *P) {
+  
+  if (is_in_func(P)) {
+    parse_err(P, "methods with functions are not permitted");
+  }
+
+  ASTNode_T *func = empty_node(NODE_FUNCTION);
+  func->is_method = true;
+
+  eat(P, "method");
+
+  ParsedStructHeader_T header = parse_method_header(P);
+  Declaration_T *decl = header.header;
+  Declaration_T *args = header.args;
+  const char *struct_name = header.struct_name;
+
+}
+
 static bool should_parse_struct(ParseState_T *P) {
   return on_type(P, TOKEN_IDENTIFIER, NULL)
     && on_string(P, ":", peek(P, 1))
@@ -1226,22 +1353,40 @@ static void parse_struct(ParseState_T *P) {
   dt->sdesc = malloc(sizeof(StructDescriptor_T));
   assert(dt->sdesc);
   dt->sdesc->members = hash_init();
+  dt->sdesc->methods = hash_init();
 
   eat(P, ":");
   eat(P, "struct");
   eat(P, "{");
 
-  /* insert new members into the struct's member table.  prevent
-   * duplicate entries */
+  const char *struct_name = dt->type_name;
+  
+  /* parse struct members / methods */
   int index = 0;
   while (!on_string(P, "}", NULL)) {
-    member = parse_declaration(P); 
-    eat(P, ";");
-    if (hash_get(dt->sdesc->members, member->dt->type_name) != NULL) {
-      parse_err(P, "duplicate member '%s' in struct '%s'", member->dt->type_name);
+    
+    /* parse method */
+    if (on_string(P, "method", NULL)) {
+    
+      eat(P, "method"); 
+      ParsedFunctionHeader_T header = parse_function_header(P);
+      eat(P, ";");
+
+      if (hash_get(dt->sdesc->methods, header.header->name) != NULL) {
+	parse_err(P, "duplicate method '%s' in struct '%s'", header.header->name, struct_name); 
+      }
+      hash_insert(dt->sdesc->methods, header.header->name, header.header);
+
+    /* parse declaration */ 
+    } else {
+      member = parse_declaration(P); 
+      eat(P, ";");
+      if (hash_get(dt->sdesc->members, member->name) != NULL) {
+	parse_err(P, "duplicate member '%s' in struct '%s'", member->name, struct_name);
+      }
+      hash_insert(dt->sdesc->members, member->name, member);
+      member->struct_index = index++;
     }
-    hash_insert(dt->sdesc->members, member->name, member);
-    member->struct_index = index++;
   }
 
   eat(P, "}");
@@ -1331,6 +1476,8 @@ ParseState_T *parse_file(LexState_T *L) {
       parse_for(P);
     } else if (should_parse_return(P)) { 
       parse_return(P);
+    } else if (should_parse_method(P)) {
+      parse_method(P);
     } else if (should_parse_function(P)) {
       parse_function(P);
     } else if (should_parse_cfunction(P)) {
